@@ -14,7 +14,7 @@ char dsport[8];
 int dsport_err;
 
 
-
+/*SUP*/
 /* Connection*/
 int fd,errcode;
 ssize_t n;
