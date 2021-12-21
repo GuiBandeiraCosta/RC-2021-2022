@@ -14,6 +14,7 @@ char dsport[8];
 int dsport_err;
 
 /* Connection*/
+int ola;
 int fd,errcode;
 ssize_t n;
 socklen_t addrlen;
