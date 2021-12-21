@@ -13,8 +13,6 @@ char dsip[30];
 char dsport[8];
 int dsport_err;
 
-
-
 /* Connection*/
 int fd,errcode;
 ssize_t n;
