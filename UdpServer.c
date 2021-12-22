@@ -61,6 +61,9 @@ int SearchUID(char uid[]){
     }
 }
 
+
+
+
 int InputParse(int argc, char*argv[]){
     char *error;
     if(argc == 1){
@@ -145,6 +148,40 @@ int main(int argc, char *argv[]){
                     printf("Fiz isto3\n");
                 }  
             }   
+        }
+        else if(strcmp(command,"LOG") == 0){
+            FILE *f;
+            char uid_str[6];
+            char password[9];
+            char check_pass[9];
+            char user_login[30];
+            char user_dirname[20];
+            char user_password[30];
+            
+            sscanf(buffer,"%s %s %s",command,uid_str,password);
+            if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
+                n = sendto(fd,"RLO NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                if(n==-1) exit(1);
+            }
+            else{    
+                sprintf(user_password,"USERS/%s/pass.txt",uid_str);
+                sprintf(user_login,"USERS/%s/login.txt",uid_str);
+                f = fopen(user_password,"r");
+                fread(check_pass,9,1,f);
+                fclose(f);
+            if (strcmp(check_pass, password )== 0){
+                f = fopen(user_login,"w");
+                if(f != NULL){
+                    fclose(f);
+                    n = sendto(fd,"RLO OK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) exit(1);
+                }
+            }
+                else{
+                    n = sendto(fd,"RLO NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) exit(1);
+                }
+            }
         }
     }
     /*end*/

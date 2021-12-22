@@ -84,13 +84,14 @@ int main(int argc,char* argv[]){
             
             if(strlen(uid_str)!=5){ 
                 printf("Invalid UID: Must be 5 digits long\n");
-                break;
+               
             }
             
             else if(strlen(password) !=8){
                 printf("Password must be 8 digits long\n");
-                break;
+               
             }
+            else{
             sprintf(send,"REG %s %s\n",uid_str,password);
             n=sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
             if(n==-1)  exit(1);
@@ -98,7 +99,7 @@ int main(int argc,char* argv[]){
             n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
             if(n==-1)  exit(1);
             printf("|%s|",buffer);
-            if(strcmp(buffer,"RRG OK\n") == 0){ /*Pq recebemos dois \n\n*/
+            if(strcmp(buffer,"RRG OK\n") == 0){ 
                 printf("User successfully registered\n");
             }
             else if(strcmp(buffer,"RRG DUP\n") == 0){
@@ -112,7 +113,38 @@ int main(int argc,char* argv[]){
             }
             else{
                 printf("Something went wrong,try again\n");
-            }  
+            }      
+        }
+        }
+        else if(strcmp(command,"login") == 0){
+            char send[20];
+            char uid_str[6];
+            char password[9];
+            sscanf(input,"%s %s %s",command,uid_str,password);
+
+            if(strlen(uid_str)!=5){ 
+                printf("Invalid UID: Must be 5 digits long\n");     
+            }
+            else if(strlen(password) !=8){
+                printf("Password must be 8 digits long\n");   
+            }
+            else{
+            sprintf(send,"LOG %s %s\n",uid_str,password);
+            n=sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
+            if(n==-1)  exit(1);
+            addrlen=sizeof(addr);
+            n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
+            if(n==-1)  exit(1);
+            if(strcmp(buffer,"RLO OK\n") == 0){
+                printf("You are now logged in\n");
+            }
+            else if(strcmp(buffer,"RLO NOK\n") == 0){
+                printf("Wrong Credentials\n");
+            }
+            else{
+                printf("Something went wrong,try again\n");
+            }    
+            }
         }
         
     }
