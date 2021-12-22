@@ -153,7 +153,7 @@ int main(int argc, char *argv[]){
             FILE *f;
             char uid_str[6];
             char password[9];
-            char check_pass[9];
+            char check_pass[12];
             char user_login[30];
             char user_dirname[20];
             char user_password[30];
@@ -167,7 +167,8 @@ int main(int argc, char *argv[]){
                 sprintf(user_password,"USERS/%s/pass.txt",uid_str);
                 sprintf(user_login,"USERS/%s/login.txt",uid_str);
                 f = fopen(user_password,"r");
-                fread(check_pass,9,1,f);
+                fread(check_pass,sizeof(char),12,f);
+		        printf("%s\n",check_pass);
                 fclose(f);
             if (strcmp(check_pass, password )== 0){
                 f = fopen(user_login,"w");
@@ -184,7 +185,7 @@ int main(int argc, char *argv[]){
             }
         }
     }
-    /*end*/
+    /*endof*/
     freeaddrinfo(res);
     close(fd);
 
