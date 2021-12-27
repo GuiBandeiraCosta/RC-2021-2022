@@ -146,6 +146,34 @@ int main(int argc,char* argv[]){
             }    
             }
         }
+        else if(strcmp(command,"unresgister")==0 || strcmp(command,"unr")==0){
+            char send[20];
+            char uid_str[6];
+            char password[9];
+            sscanf(input,"%s %s %s",command,uid_str,password);
+            if(strlen(uid_str)!=5){ 
+                printf("Invalid UID: Must be 5 digits long\n");     
+            }
+            else if(strlen(password) !=8){
+                printf("Password must be 8 digits long\n");   
+            }
+            else{
+                sprintf(send,"UNR %s %s\n",uid_str,password);
+                n=sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
+                if(n==-1)  exit(1);
+                addrlen=sizeof(addr);
+                n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
+                if(n==-1)  exit(1);
+                if(strcmp(buffer,"RUN OK\n") == 0){
+                    printf("User successfuly unregistered\n");
+                }
+                else if(strcmp(buffer,"RLO NOK\n") == 0){
+                    printf("Wrong Credentials\n");
+                }
+
+
+            }
+        }
         
     }
 
