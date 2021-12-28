@@ -226,7 +226,7 @@ int main(int argc, char *argv[]){
             }
             else{
                 sprintf(user_password,"USERS/%s/%s_pass.txt",uid_str,uid_str);
-                sprintf(user_login,"USERS/%s/%s,login.txt",uid_str,uid_str);
+                sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
                 f = fopen(user_password,"r");
                 fread(check_pass,sizeof(char),12,f);
 		        printf("%s\n",check_pass);
@@ -240,7 +240,39 @@ int main(int argc, char *argv[]){
                     if(n==-1) exit(1);
                 }
                 else{
-                    n = sendto(fd,"RUN OK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(fd,"RUN NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) exit(1);
+                }
+            }
+
+        }
+        else if(strcmp(command,"OUT") == 0){
+            FILE *f;
+            char uid_str[6];
+            char password[9];
+            char check_pass[12];
+            char user_login[30];
+            char user_password[30];
+            sscanf(buffer,"%s %s %s",command,uid_str,password);
+            if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
+                n = sendto(fd,"ROU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                if(n==-1) exit(1);
+            }
+            else{
+                sprintf(user_password,"USERS/%s/%s_pass.txt",uid_str,uid_str);
+                sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
+                f = fopen(user_password,"r");
+                fread(check_pass,sizeof(char),12,f);
+                fclose(f);
+                f = fopen(user_login,"r");
+                if(strcmp(password,check_pass) == 0 && f != NULL){
+                    fclose(f);
+                    DelLoginFile(uid_str);
+                    n = sendto(fd,"ROU OK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) exit(1);
+                }
+                else{
+                    n = sendto(fd,"ROU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
             }
