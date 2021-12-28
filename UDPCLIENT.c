@@ -22,6 +22,21 @@ struct sockaddr_in addr;
 char buffer[128];
 /*end*/
 
+int TimerON(int sd){
+    struct timeval tmout;
+    memset((char *)&tmout,0,sizeof(tmout)); /* clear time structure */
+    tmout.tv_sec=5; /* Wait for 15 sec for a reply from server. */
+    return (setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tmout,sizeof(struct timeval)));
+}
+
+int TimerOFF(int sd){
+    struct timeval tmout;
+    memset((char *)&tmout,0,sizeof(tmout)); /* clear time structure */
+    return (setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tmout,sizeof(struct timeval)));
+}
+
+
+
 int InputParse(int argc,char* argv[]){
     char *error;
     if(argc == 1){
@@ -95,9 +110,12 @@ int main(int argc,char* argv[]){
             sprintf(send,"REG %s %s\n",uid_str,password);
             n=sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
             if(n==-1)  exit(1);
+            TimerON(fd);
             addrlen=sizeof(addr);
             n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
-            if(n==-1)  exit(1);
+            if(n==-1)  printf("Server error try again please\n");
+            else{
+            TimerOFF(fd);
             printf("|%s|",buffer);
             if(strcmp(buffer,"RRG OK\n") == 0){ 
                 printf("User successfully registered\n");
@@ -113,6 +131,7 @@ int main(int argc,char* argv[]){
             }
             else{
                 printf("Something went wrong,try again\n");
+            }
             }      
         }
         }
@@ -132,21 +151,25 @@ int main(int argc,char* argv[]){
             sprintf(send,"LOG %s %s\n",uid_str,password);
             n=sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
             if(n==-1)  exit(1);
+            TimerON(fd);
             addrlen=sizeof(addr);
             n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
-            if(n==-1)  exit(1);
-            if(strcmp(buffer,"RLO OK\n") == 0){
-                printf("You are now logged in\n");
-            }
-            else if(strcmp(buffer,"RLO NOK\n") == 0){
-                printf("Wrong Credentials\n");
-            }
+            if(n==-1)  printf("Server error try again please\n");
             else{
-                printf("Something went wrong,try again\n");
-            }    
+                TimerOFF(fd);
+                if(strcmp(buffer,"RLO OK\n") == 0){
+                    printf("You are now logged in\n");
+                }
+                else if(strcmp(buffer,"RLO NOK\n") == 0){
+                    printf("Wrong Credentials\n");
+                }
+                else{
+                    printf("Something went wrong,try again\n");
+                }  
+            }  
             }
         }
-        else if(strcmp(command,"unresgister")==0 || strcmp(command,"unr")==0){
+        else if(strcmp(command,"unregister")==0 || strcmp(command,"unr")==0){
             char send[20];
             char uid_str[6];
             char password[9];
@@ -161,17 +184,19 @@ int main(int argc,char* argv[]){
                 sprintf(send,"UNR %s %s\n",uid_str,password);
                 n=sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
                 if(n==-1)  exit(1);
+                TimerON(fd);
                 addrlen=sizeof(addr);
                 n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
-                if(n==-1)  exit(1);
-                if(strcmp(buffer,"RUN OK\n") == 0){
-                    printf("User successfuly unregistered\n");
+                if(n==-1)  printf("Server error try again please\n");
+                else{
+                    TimerOFF(fd);
+                    if(strcmp(buffer,"RUN OK\n") == 0){
+                        printf("User successfuly unregistered\n");
+                    }
+                    else if(strcmp(buffer,"RLO NOK\n") == 0){
+                        printf("Wrong Credentials\n");
+                    }
                 }
-                else if(strcmp(buffer,"RLO NOK\n") == 0){
-                    printf("Wrong Credentials\n");
-                }
-
-
             }
         }
         
