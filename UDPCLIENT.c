@@ -241,9 +241,17 @@ int main(int argc,char* argv[]){
                 }
             }
         }
-        
+        else if(strcmp(command,"showuid")==0 || strcmp(command,"su")==0){
+            if(strcmp(user_logged,"") == 0){
+                printf("You are not logged in!\n"); 
+            }
+            else{
+            printf("%s\n",user_logged);
+            }
+        }
         
     }
+    
 
     freeaddrinfo(res);
     close(fd);
