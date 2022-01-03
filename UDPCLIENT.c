@@ -87,9 +87,9 @@ int main(int argc,char* argv[]){
     
     if(errcode!=0) /*error*/ exit(1);
     while(1){
-        char input[30];
+        char input[240];
         char command[13];
-        fgets(input,30,stdin);
+        fgets(input,240,stdin);
         sscanf(input,"%s",command);
         if(strcmp(command,"reg")== 0){
             char send[20];
@@ -119,16 +119,17 @@ int main(int argc,char* argv[]){
             else{
             TimerOFF(fd);
             printf("|%s|",buffer);
-            if(strcmp(buffer,"RRG OK\n") == 0){ 
+            buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
+            if(strcmp(buffer,"RRG OK") == 0){ 
                 printf("User successfully registered\n");
             }
-            else if(strcmp(buffer,"RRG DUP\n") == 0){
+            else if(strcmp(buffer,"RRG DUP") == 0){
                 printf("User already registered\n");
             }
-            else if(strcmp(buffer,"RRG NOK\n") == 0){
-                printf("Registration failed\n");
+            else if(strcmp(buffer,"RRG NOK") == 0){
+                printf("Registration failed");
             }
-            else if(strcmp(buffer,"ERR\n") == 0){
+            else if(strcmp(buffer,"ERR") == 0){
                 printf("ERROR:unexpected protocol message\n");
             }
             else{
@@ -157,14 +158,16 @@ int main(int argc,char* argv[]){
             addrlen=sizeof(addr);
             n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
             if(n==-1)  printf("Server error try again please\n");
+
             else{
+                buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
                 TimerOFF(fd);
-                if(strcmp(buffer,"RLO OK\n") == 0){
+                if(strcmp(buffer,"RLO OK") == 0){
                     strcpy(user_logged,uid_str);
                     strcpy(logged_pass,password);
                     printf("You are now logged in\n");
                 }
-                else if(strcmp(buffer,"RLO NOK\n") == 0){
+                else if(strcmp(buffer,"RLO NOK") == 0){
                     printf("Wrong Credentials\n");
                 }
                 else{
@@ -194,17 +197,20 @@ int main(int argc,char* argv[]){
                 if(n==-1)  printf("Server error try again please\n");
                 else{
                     TimerOFF(fd);
-                    if(strcmp(buffer,"RUN OK\n") == 0){
+                    buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
+                    if(strcmp(buffer,"RUN OK") == 0){
                         printf("User successfuly unregistered\n");
                     }
-                    else if(strcmp(buffer,"RLO NOK\n") == 0){
+                    else if(strcmp(buffer,"RUN NOK") == 0){
                         printf("Wrong Credentials\n");
                     }
                     else{
                     printf("Something went wrong,try again\n");
                     } 
                 }
+                printf("BUFFER UNREGISTER %s \n",buffer);
             }
+            
         }
         else if(strcmp(command,"logout") == 0){
             char send[20];
@@ -224,15 +230,17 @@ int main(int argc,char* argv[]){
                 TimerON(fd);
                 addrlen = sizeof(addr);
                 n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
+                
                 if(n==-1)  printf("Server error try again please\n");
                 else{
                     TimerOFF(fd);
-                    if(strcmp(buffer,"ROU OK\n") == 0){
+                    buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
+                    if(strcmp(buffer,"ROU OK") == 0){
                         strcpy(user_logged,"");
                         strcpy(logged_pass,"");
                         printf("User successfuly logged out\n");
                     }
-                    else if(strcmp(buffer,"ROU NOK\n") == 0){
+                    else if(strcmp(buffer,"ROU NOK") == 0){
                         printf("Wrong Credentials\n");
                     }
                     else{
@@ -249,6 +257,36 @@ int main(int argc,char* argv[]){
             printf("%s\n",user_logged);
             }
         }
+        else if(strcmp(command,"subscribe")==0 || strcmp(command,"s")==0){
+            char send[50];
+            char gname[25];
+            char gid[3];
+            sscanf(input,"%s %s %s",command,gid,gname);
+            if(strcmp(user_logged,"") == 0){ /*Check User logged in*/
+                printf("User must be logged in\n");
+            }
+            printf("GID %s \n GID_NUM %d\n",gid,atoi(gid));
+            if((strcmp(gid,"00") != 0)&& (0 >= atoi(gid) || atoi (gid) > 99)){ /*Check correct gid*/
+                printf("Gid must be between 00 and 99\n");
+            }
+            if(strlen(gname) > 24){ /*Check correct lenght group name */
+                printf("Gname cannot exceed 24 charachters\n");
+            }
+            else{
+                sprintf(send,"GSR %s %s %s\n",user_logged,gid,gname);
+                printf("SEND %s",send);
+                n = sendto(fd,"GSR 95586 00 updog\n",22,0,res->ai_addr,res->ai_addrlen);
+                if(n == -1) exit(1);
+                
+                addrlen = sizeof(addr);
+                n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
+                
+                if(n==-1)  printf("Server error try again please\n");
+                
+                printf("BUFFER %s",buffer);
+            }
+        }   
+
         
     }
     
