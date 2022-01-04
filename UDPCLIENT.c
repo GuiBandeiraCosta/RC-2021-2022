@@ -118,7 +118,7 @@ int main(int argc,char* argv[]){
             if(n==-1)  printf("Server error try again please\n");
             else{
             TimerOFF(fd);
-            printf("|%s|",buffer);
+           
             buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
             if(strcmp(buffer,"RRG OK") == 0){ 
                 printf("User successfully registered\n");
@@ -168,7 +168,7 @@ int main(int argc,char* argv[]){
                     printf("You are now logged in\n");
                 }
                 else if(strcmp(buffer,"RLO NOK") == 0){
-                    printf("Wrong Credentials\n");
+                    printf("Couldnt login\n");
                 }
                 else{
                     printf("Something went wrong,try again\n");
@@ -202,13 +202,13 @@ int main(int argc,char* argv[]){
                         printf("User successfuly unregistered\n");
                     }
                     else if(strcmp(buffer,"RUN NOK") == 0){
-                        printf("Wrong Credentials\n");
+                        printf("Couldnt unregister\n");
                     }
                     else{
                     printf("Something went wrong,try again\n");
                     } 
                 }
-                printf("BUFFER UNREGISTER %s \n",buffer);
+                
             }
             
         }
@@ -225,12 +225,12 @@ int main(int argc,char* argv[]){
             }
             else{
                 sprintf(send,"OUT %s %s\n",uid_str,password);
-                n = sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
+                n = sendto(fd,send,20,0,res->ai_addr,res->ai_addrlen);
                 if(n == -1) exit(1);
                 TimerON(fd);
                 addrlen = sizeof(addr);
                 n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
-                
+                printf("BUFFER LOGOUT | %s\n|",buffer);
                 if(n==-1)  printf("Server error try again please\n");
                 else{
                     TimerOFF(fd);
@@ -241,7 +241,7 @@ int main(int argc,char* argv[]){
                         printf("User successfuly logged out\n");
                     }
                     else if(strcmp(buffer,"ROU NOK") == 0){
-                        printf("Wrong Credentials\n");
+                        printf("Couldnt logout\n");
                     }
                     else{
                     printf("Something went wrong,try again\n");
@@ -257,38 +257,73 @@ int main(int argc,char* argv[]){
             printf("%s\n",user_logged);
             }
         }
+        
+
         else if(strcmp(command,"subscribe")==0 || strcmp(command,"s")==0){
             char send[50];
             char gname[25];
-            char gid[3];
-            sscanf(input,"%s %s %s",command,gid,gname);
+            int gid;
+            char gid_str[3];
+            sscanf(input,"%s %d %s",command,&gid,gname);
             if(strcmp(user_logged,"") == 0){ /*Check User logged in*/
                 printf("User must be logged in\n");
             }
-            printf("GID %s \n GID_NUM %d\n",gid,atoi(gid));
-            if((strcmp(gid,"00") != 0)&& (0 >= atoi(gid) || atoi (gid) > 99)){ /*Check correct gid*/
-                printf("Gid must be between 00 and 99\n");
+            
+            else if(gid < 0 || gid > 99){
+                printf("GID must be between 0 and 99");
             }
-            if(strlen(gname) > 24){ /*Check correct lenght group name */
+            else if(strlen(gname) > 24){ /*Check correct lenght group name */
                 printf("Gname cannot exceed 24 charachters\n");
             }
+            
+            
             else{
-                sprintf(send,"GSR %s %s %s\n",user_logged,gid,gname);
-                printf("SEND %s",send);
-                n = sendto(fd,"GSR 95586 00 updog\n",22,0,res->ai_addr,res->ai_addrlen);
+                if(gid < 10){
+                    sprintf(gid_str,"0%d",gid);
+                }
+                else if(gid >= 10){
+                    sprintf(gid_str,"%d",gid);
+                }
+                
+                sprintf(send,"GSR %s %s %s\n",user_logged,gid_str,gname);
+                n = sendto(fd,send,50,0,res->ai_addr,res->ai_addrlen);
                 if(n == -1) exit(1);
                 
                 addrlen = sizeof(addr);
+                TimerON(fd);
                 n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
-                
                 if(n==-1)  printf("Server error try again please\n");
-                
-                printf("BUFFER %s",buffer);
+                else{
+                    TimerOFF(fd);
+                    if(strcmp(buffer,"RGS OK\n") == 0){
+                        printf("Group subscribed to\n");
+                    }
+                    else if(strcmp(buffer,"RGS NEW GID\n") == 0){
+                        printf("New group created and subscribed to\n");
+                    }
+                    else if(strcmp(buffer,"RGS E_USR\n") == 0){
+                        printf("Invalid user\n");
+                    }
+                    else if(strcmp(buffer,"RGS E_GRP\n") == 0){
+                        printf("Invalid group number\n");
+                    }
+                    else if(strcmp(buffer,"RGS E_GNAME\n") == 0){
+                        printf("Invalid group name\n");
+                    }
+                    else if(strcmp(buffer,"RGS E_FULL\n") == 0){
+                        printf("Maximiun group number reched\n");
+                    }
+                    else if(strcmp(buffer,"RGS NOK\n") == 0){
+                        printf("STATUS NOT OKAY\n");
+                    }
+                    else{
+                    printf("Something went wrong,try again\n");
+                    }
+                }
             }
         }   
-
         
-    }
+    }/*END OF WHILE*/
     
 
     freeaddrinfo(res);
