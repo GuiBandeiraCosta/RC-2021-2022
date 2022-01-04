@@ -110,7 +110,7 @@ int main(int argc,char* argv[]){
             }
             else{
             sprintf(send,"REG %s %s\n",uid_str,password);
-            n=sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
+            n=sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
             if(n==-1)  exit(1);
             TimerON(fd);
             addrlen=sizeof(addr);
@@ -152,7 +152,7 @@ int main(int argc,char* argv[]){
             }
             else{
             sprintf(send,"LOG %s %s\n",uid_str,password);
-            n=sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
+            n=sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
             if(n==-1)  exit(1);
             TimerON(fd);
             addrlen=sizeof(addr);
@@ -189,7 +189,7 @@ int main(int argc,char* argv[]){
             }
             else{
                 sprintf(send,"UNR %s %s\n",uid_str,password);
-                n=sendto(fd,send,19,0,res->ai_addr,res->ai_addrlen);
+                n=sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
                 if(n==-1)  exit(1);
                 TimerON(fd);
                 addrlen=sizeof(addr);
@@ -225,7 +225,7 @@ int main(int argc,char* argv[]){
             }
             else{
                 sprintf(send,"OUT %s %s\n",uid_str,password);
-                n = sendto(fd,send,20,0,res->ai_addr,res->ai_addrlen);
+                n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
                 if(n == -1) exit(1);
                 TimerON(fd);
                 addrlen = sizeof(addr);
@@ -286,7 +286,7 @@ int main(int argc,char* argv[]){
                 }
                 
                 sprintf(send,"GSR %s %s %s\n",user_logged,gid_str,gname);
-                n = sendto(fd,send,50,0,res->ai_addr,res->ai_addrlen);
+                n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
                 if(n == -1) exit(1);
                 
                 addrlen = sizeof(addr);
@@ -294,26 +294,31 @@ int main(int argc,char* argv[]){
                 n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
                 if(n==-1)  printf("Server error try again please\n");
                 else{
+                    char RGS[4];
+                    char RGS_STATUS[8];
+                    char gid_created[3];
+                    buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
+                    sscanf(buffer,"%s %s %s",RGS,RGS_STATUS,gid_created);
                     TimerOFF(fd);
-                    if(strcmp(buffer,"RGS OK\n") == 0){
+                    if(strcmp(buffer,"RGS OK") == 0){
                         printf("Group subscribed to\n");
                     }
-                    else if(strcmp(buffer,"RGS NEW GID\n") == 0){
-                        printf("New group created and subscribed to\n");
+                    else if(strcmp(RGS,"RGS") == 0 && strcmp(RGS_STATUS,"NEW") == 0){
+                        printf("New group with GID %s created and subscribed to\n",gid_created);
                     }
-                    else if(strcmp(buffer,"RGS E_USR\n") == 0){
+                    else if(strcmp(buffer,"RGS E_USR") == 0){
                         printf("Invalid user\n");
                     }
-                    else if(strcmp(buffer,"RGS E_GRP\n") == 0){
-                        printf("Invalid group number\n");
+                    else if(strcmp(buffer,"RGS E_GRP") == 0){
+                        printf("Invalid group number");
                     }
-                    else if(strcmp(buffer,"RGS E_GNAME\n") == 0){
+                    else if(strcmp(buffer,"RGS E_GNAME") == 0){
                         printf("Invalid group name\n");
                     }
-                    else if(strcmp(buffer,"RGS E_FULL\n") == 0){
+                    else if(strcmp(buffer,"RGS E_FULL") == 0){
                         printf("Maximiun group number reched\n");
                     }
-                    else if(strcmp(buffer,"RGS NOK\n") == 0){
+                    else if(strcmp(buffer,"RGS NOK") == 0){
                         printf("STATUS NOT OKAY\n");
                     }
                     else{
