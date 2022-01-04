@@ -357,7 +357,7 @@ int main(int argc, char *argv[]){
                     f = fopen(group_namef,"w");
                     fputs(gname,f);
                     fclose(f);
-                     char subscribe[21];
+                    char subscribe[21];
                     sprintf(subscribe,"%s/%s.txt",group_gid_dir,uid_str);
                     f = fopen(subscribe,"w");
                     fclose(f);
