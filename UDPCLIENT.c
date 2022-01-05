@@ -263,8 +263,8 @@ int main(int argc,char* argv[]){
         else if(strcmp(command,"groups")==0 || strcmp(command,"gl")==0){
             char buffer[3070]; /*MAX AMOUNT*/
             int N_Groups;
-            char ignore[3];
-            list[28];
+            char previous[3070]; 
+            char *list; 
             int number =0;
             int counter = 0;
             n = sendto(fd,"GLS\n",4,0,res->ai_addr,res->ai_addrlen);
@@ -275,22 +275,23 @@ int main(int argc,char* argv[]){
             if(n==-1)  printf("Server error try again please\n");
             else{
                 TimerOFF(fd);
-                sscanf(buffer,"%s %d",ignore,&N_Groups);
-                int n_spaces = 0;
-                for(int i = 0; buffer[i] != '\n';i++){
-                    if(n_spaces = number){
-                        list[counter] =  buffer[i];
-                    }
-                    if(n_spaces = number +1){
-                        if
-                    }
-                    if(buffer[i] = ' '){
-                        n_spaces++;
-                    }
-                    
+                list= strtok(buffer," ");  
+                list= strtok(NULL," ");  
+                list= strtok(NULL," "); 
+                strcpy(previous, ""); 
+                while (list != NULL){
+                counter++; 
+                   if(counter%3!=0){
+                   strcat(previous, list);
+                   strcat(previous, " ");   
+                   }
+                   else{
+                   strcat(previous, "\n"); 
+                   }
+                   list= strtok(NULL," "); 
                 }
-                 printf("Buffer %s \n  || %ld\n",buffer,strlen(buffer));
-             }
+                 printf("%s\n", previous); 
+            }
         }
 
 
