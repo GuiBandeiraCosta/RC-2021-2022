@@ -12,8 +12,8 @@
 char dsip[30];
 char dsport[8];
 int dsport_err;
-char user_logged[6];
-char logged_pass[9];
+char user_logged[6] = "";
+char logged_pass[9] = "";
 
 /* Connection*/
 int fd,errcode;
@@ -143,8 +143,12 @@ int main(int argc,char* argv[]){
             char uid_str[6];
             char password[9];
             sscanf(input,"%s %s %s",command,uid_str,password);
-
-            if(strlen(uid_str)!=5){ 
+            if((strcmp(user_logged,uid_str) != 0 || strcmp(password,logged_pass) != 0 )&&(strcmp(user_logged,"") != 0 && strcmp(logged_pass,"") != 0)){
+                        printf("There is a User already logged in\n");
+            }
+            
+            
+            else if(strlen(uid_str)!=5){ 
                 printf("Invalid UID: Must be 5 digits long\n");     
             }
             else if(strlen(password) !=8){
@@ -158,6 +162,7 @@ int main(int argc,char* argv[]){
                 TimerON(fd);
                 addrlen=sizeof(addr);
                 n=recvfrom(fd,buffer,10,0,(struct sockaddr*)&addr,&addrlen);
+                
                 if(n==-1)  printf("Server error try again please\n");
                 else{
                     buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
@@ -215,18 +220,12 @@ int main(int argc,char* argv[]){
         }
         else if(strcmp(command,"logout") == 0){
             char send[20];
-            char uid_str[6];
-            char password[9];
-            sscanf(input,"%s %s %s",command,uid_str,password);
-            if(strlen(uid_str)!=5){ 
-                printf("Invalid UID: Must be 5 digits long\n");     
-            }
-            else if(strlen(password) !=8){
-                printf("Password must be 8 digits long\n");   
+            if(strcmp(user_logged,"") == 0 || strcmp(logged_pass,"") == 0){
+                printf("User not logged in\n");
             }
             else{
                 char buffer[10];
-                sprintf(send,"OUT %s %s\n",uid_str,password);
+                sprintf(send,"OUT %s %s\n",user_logged,logged_pass);
                 n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
                 if(n == -1) exit(1);
                 TimerON(fd);

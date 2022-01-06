@@ -68,6 +68,7 @@ int DelLoginFile(char UID[]){
     sprintf(pathname,"USERS/%s/%s_login.txt",UID,UID);
     f = fopen(pathname,"r");
     if(f!= NULL){
+        fclose(f);
         if(unlink(pathname)==0)
             return(1);
     }
