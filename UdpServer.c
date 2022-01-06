@@ -27,6 +27,9 @@ struct sockaddr_in addr;
 char buffer[128];
 /*end*/
 
+
+
+
 int CreateUserDir(char UID[],char password[]){
     char user_dirname[20];
     char user_password[30];
@@ -197,7 +200,7 @@ int main(int argc, char *argv[]){
                 sprintf(user_password,"USERS/%s/%s_pass.txt",uid_str,uid_str);
                 sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
                 f = fopen(user_password,"r");
-                fscanf(f,"%s",check_pass);
+                fscanf(f,"%8s",check_pass);
 		        printf("ISTO È O CHECK PASS %s\n",check_pass);
                 fclose(f);
             if (strcmp(check_pass, password )== 0){
@@ -231,7 +234,7 @@ int main(int argc, char *argv[]){
                 sprintf(user_password,"USERS/%s/%s_pass.txt",uid_str,uid_str);
                 sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
                 f = fopen(user_password,"r");
-                fscanf(f,"%s",check_pass);
+                fscanf(f,"%8s",check_pass);
 		        printf("%s\n",check_pass);
                 fclose(f);
                 if(strcmp(password,check_pass) == 0){
@@ -265,7 +268,7 @@ int main(int argc, char *argv[]){
                 sprintf(user_password,"USERS/%s/%s_pass.txt",uid_str,uid_str);
                 sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
                 f = fopen(user_password,"r");
-                fscanf(f,"%s",check_pass);
+                fscanf(f,"%8s",check_pass);
                 fclose(f);
                 f = fopen(user_login,"r");
                 if(strcmp(password,check_pass) == 0 && f != NULL){
@@ -281,6 +284,9 @@ int main(int argc, char *argv[]){
             }
 
         }
+
+
+       
        
         else if(strcmp(command,"GSR") == 0){
             
@@ -323,7 +329,7 @@ int main(int argc, char *argv[]){
                         
                         sprintf(group_namef,"%s/%s_name.txt",group_gid_dir,gid_str);
                         f = fopen(group_namef,"r");
-                        fscanf(f,"%s",gname_checker);
+                        fscanf(f,"%24s",gname_checker);
                         fclose(f);
                         if(strcmp(gname_checker,gname)!= 0){
                             n = sendto(fd,"RGS E_GNAME\n",n,0,(struct sockaddr*)&addr,addrlen); 
@@ -341,7 +347,7 @@ int main(int argc, char *argv[]){
                     closedir(d);
                 }
                 else if(strcmp(gid_str,"00") == 0){
-                    
+                    char send[20];
                     char n_groups_str[3];
                     int ret;
                     n_groups++;
@@ -361,7 +367,8 @@ int main(int argc, char *argv[]){
                     sprintf(subscribe,"%s/%s.txt",group_gid_dir,uid_str);
                     f = fopen(subscribe,"w");
                     fclose(f);
-                    n = sendto(fd,"RGS NEW GID\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                    sprintf(send,"RGS NEW %s\n",n_groups_str);
+                    n = sendto(fd,send,n,0,(struct sockaddr*)&addr,addrlen); 
                     if(n==-1) exit(1);
                 }
                 
