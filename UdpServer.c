@@ -17,6 +17,12 @@ int flag_v = 0;
 int dsport_err;
 int n_clients = 0;
 int n_groups = 0;
+typedef struct GROUPLIST{
+    int no_groups;
+    char group_no[99][3];
+    char group_name[99][25];
+    char group_message[99][5];
+}GROUPLIST;
 
 /*Connection*/
 int fd,errcode;
@@ -28,6 +34,40 @@ char buffer[128];
 /*end*/
 
 
+int ListGroupsDir(GROUPLIST *list){
+    DIR *d;
+    struct dirent *dir;
+    int i=0;
+    FILE *fp;
+    char GIDname[530];
+    list->no_groups=0;
+    d = opendir("GROUPS");
+    if (d){
+        while ((dir = readdir(d)) != NULL){
+            if(dir->d_name[0]=='.')
+                continue;
+            if(strlen(dir->d_name)>2)
+                continue;
+            strcpy(list->group_message[i],"0000");
+            strcpy(list->group_no[i], dir->d_name);
+            sprintf(GIDname,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
+            fp=fopen(GIDname,"r");
+            if(fp)
+            {
+                fscanf(fp,"%24s",list->group_name[i]);
+                fclose(fp);
+            }
+            ++i;
+            if(i==99)
+            break;
+        }
+        list->no_groups=i;
+        closedir(d);
+    }
+    else
+        return(-1);
+    return(list->no_groups);
+}
 
 
 int CreateUserDir(char UID[],char password[]){
@@ -66,9 +106,9 @@ int DelLoginFile(char UID[]){
     char pathname[30];
     FILE *f;
     sprintf(pathname,"USERS/%s/%s_login.txt",UID,UID);
-    f = fopen(pathname,"r");
-    if(f!= NULL){
-        fclose(f);
+
+    if(access( pathname, F_OK ) == 0){
+        
         if(unlink(pathname)==0)
             return(1);
     }
@@ -241,7 +281,6 @@ int main(int argc, char *argv[]){
                 if(strcmp(password,check_pass) == 0){
                     DelPassFile(uid_str);
                     DelLoginFile(uid_str);
-                    // ver se e preciso apagar login.txt tbm//
                     DelUserDir(uid_str);
                     n = sendto(fd,"RUN OK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
@@ -284,6 +323,64 @@ int main(int argc, char *argv[]){
                 }
             }
 
+        }
+
+        else if(strcmp(command,"GLS") == 0){
+            char send[3070];
+            char auxiliar[50];
+            GROUPLIST *list = malloc(sizeof(GROUPLIST));
+            ListGroupsDir(list);
+            sprintf(send,"RGL %d",list->no_groups);
+            for(int i=0; i < list->no_groups;i++){
+                sprintf(auxiliar," %s %s %s",list->group_no[i],list->group_name[i],list->group_message[i]);
+                strcat(send,auxiliar);
+            }
+            strcat(send,"\n");
+            free(list);
+            n = sendto(fd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
+            if(n==-1) exit(1);
+            
+        }
+        else if(strcmp(command,"GLM") == 0){
+            char send[3070];
+            char aux_big[3070];
+            char auxiliar[50];
+            char uid_str[6];
+            char user_login[30];
+            char group_member_path[30];
+            int counter = 0;
+            sscanf(buffer,"%s %s",command,uid_str);
+            sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
+                
+            if(strlen(uid_str)!=5  || access( user_login, F_OK ) != 0){
+                    n = sendto(fd,"RGM E_USR\n",11,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) exit(1);
+            }
+            else{
+                GROUPLIST *list = malloc(sizeof(GROUPLIST));
+                ListGroupsDir(list);
+                
+                for(int i=0; i < list->no_groups;i++){
+                    sprintf(group_member_path,"GROUPS/%s/%s.txt",list->group_no[i],uid_str);
+                    if(access( group_member_path, F_OK ) == 0){
+                        sprintf(auxiliar," %s %s %s",list->group_no[i],list->group_name[i],list->group_message[i]);
+                        strcat(aux_big,auxiliar);
+                        counter++;
+                    }
+                }
+                if(counter == 0){
+                    n = sendto(fd,"RGM 0\n",7,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) exit(1);
+                }
+                else{
+                    sprintf(auxiliar,"RGM %d",counter);
+                    strcat(send,auxiliar);
+                    strcat(send,aux_big);
+                    free(list);
+                    n = sendto(fd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) exit(1);
+                }
+            }
         }
 
 
@@ -351,31 +448,96 @@ int main(int argc, char *argv[]){
                     char send[20];
                     char n_groups_str[3];
                     int ret;
-                    n_groups++;
-                     if(n_groups < 10){
-                        sprintf(n_groups_str,"0%d",n_groups);
+                   
+                    int name_exists = -1;
+                    GROUPLIST *list = malloc(sizeof(GROUPLIST));
+                    ListGroupsDir(list);
+                     for(int i=0; i < list->no_groups;i++){
+                        if(strcmp(gname,list->group_name[i]) == 0){
+                            name_exists = 1;
                         }
-                    else if(n_groups >= 10){
-                        sprintf(n_groups_str,"%d",n_groups);
-                     }
-                    sprintf(group_gid_dir,"GROUPS/%s",n_groups_str);
-                    ret=mkdir(group_gid_dir,0700);
-                    sprintf(group_namef,"%s/%s_name.txt",group_gid_dir,n_groups_str);
-                    f = fopen(group_namef,"w");
-                    fputs(gname,f);
-                    fclose(f);
-                    char subscribe[21];
-                    sprintf(subscribe,"%s/%s.txt",group_gid_dir,uid_str);
-                    f = fopen(subscribe,"w");
-                    fclose(f);
-                    sprintf(send,"RGS NEW %s\n",n_groups_str);
-                    n = sendto(fd,send,n,0,(struct sockaddr*)&addr,addrlen); 
-                    if(n==-1) exit(1);
+                    }
+                    free(list);
+                    if(name_exists == 1){
+                        n = sendto(fd,"RGS E_GNAME\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                        if(n==-1) exit(1);
+                    }
+                    else{
+                        n_groups++;
+                        if(n_groups < 10){
+                            sprintf(n_groups_str,"0%d",n_groups);
+                            }
+                        else if(n_groups >= 10){
+                            sprintf(n_groups_str,"%d",n_groups);
+                        }
+                        sprintf(group_gid_dir,"GROUPS/%s",n_groups_str);
+                        ret=mkdir(group_gid_dir,0700);
+                        sprintf(group_namef,"%s/%s_name.txt",group_gid_dir,n_groups_str);
+                        f = fopen(group_namef,"w");
+                        fputs(gname,f);
+                        fclose(f);
+                        char subscribe[21];
+                        sprintf(subscribe,"%s/%s.txt",group_gid_dir,uid_str);
+                        f = fopen(subscribe,"w");
+                        fclose(f);
+                        sprintf(send,"RGS NEW %s\n",n_groups_str);
+                        n = sendto(fd,send,n,0,(struct sockaddr*)&addr,addrlen); 
+                        if(n==-1) exit(1);
+                    }
                 }
                 
                     
-            }
         }
+        else if(strcmp(command,"GUR") == 0){
+                FILE *f;
+                
+                char uid_str[6];
+                char gid_str[3];
+                char user_login[30];
+                char group_gid_name[25];
+                char dir_group_sub[25];
+                char group_namef[32];
+                int error;
+                
+        
+                sscanf(buffer,"%s %s %s",command,uid_str,gid_str);
+                
+                sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
+                sprintf(group_gid_name,"GROUPS/%s/%s_name.txt",gid_str,gid_str);
+                sprintf(dir_group_sub,"GROUPS/%s/%s.txt",gid_str,uid_str);
+                if(strlen(uid_str)!=5  ||strlen(gid_str) !=2){
+                    n = sendto(fd,"RGU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) exit(1);
+                }
+                
+                else if( access( user_login, F_OK ) != 0 ){ /*NOT LOGGED IN*/
+                    n = sendto(fd,"RGU E_USR\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) exit(1);
+                }
+                else if(access( group_gid_name, F_OK ) != 0){ /* GROUP Doesnt Exist */
+                    n = sendto(fd,"RGU E_GRP\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                    if(n==-1) exit(1);
+                }
+                 else if(access( dir_group_sub, F_OK ) != 0){ /* User is not subbed*/
+                    n = sendto(fd,"RGU E_USR\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                    if(n==-1) exit(1);
+                }
+                else{
+                    error = unlink(dir_group_sub);
+                    if(error == 0){
+                        n = sendto(fd,"RGU OK\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                        if(n==-1) exit(1);
+                    }
+                    else{
+                        n = sendto(fd,"RGU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                        if(n==-1) exit(1);
+                    }
+                }
+        }
+
+
+
+    }/*END OF WHILE*/
     
     /*endof*/
     freeaddrinfo(res);

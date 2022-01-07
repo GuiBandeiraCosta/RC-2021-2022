@@ -14,6 +14,7 @@ char dsport[8];
 int dsport_err;
 char user_logged[6] = "";
 char logged_pass[9] = "";
+char gid_selected[3] = "";
 
 /* Connection*/
 int fd,errcode;
@@ -254,7 +255,7 @@ int main(int argc,char* argv[]){
                 printf("You are not logged in!\n"); 
             }
             else{
-            printf("%s\n",user_logged);
+            printf("USER LOGGED IN ID %s\n",user_logged);
             }
         }
         
@@ -264,36 +265,127 @@ int main(int argc,char* argv[]){
             int N_Groups;
             char previous[3070]; 
             char *list; 
-            int number =0;
-            int counter = 0;
+            char auxiliar[30];
+            
             n = sendto(fd,"GLS\n",4,0,res->ai_addr,res->ai_addrlen);
             if(n == -1) exit(1); 
             addrlen = sizeof(addr);
             TimerON(fd);
             n=recvfrom(fd,buffer,3070,0,(struct sockaddr*)&addr,&addrlen);
             if(n==-1)  printf("Server error try again please\n");
+            
             else{
+                buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
                 TimerOFF(fd);
-                list= strtok(buffer," ");  
-                list= strtok(NULL," ");  
-                list= strtok(NULL," "); 
-                strcpy(previous, ""); 
-                while (list != NULL){
-                counter++; 
-                   if(counter%3!=0){
-                   strcat(previous, list);
-                   strcat(previous, " ");   
-                   }
-                   else{
-                   strcat(previous, "\n"); 
-                   }
-                   list= strtok(NULL," "); 
+                if(strcmp(buffer,"RGL 0") == 0){
+                    printf("There are no Groups\n");
                 }
-                 printf("%s\n", previous); 
+                else{
+                
+                    list= strtok(buffer," ");  
+                    list= strtok(NULL," ");  
+                    list= strtok(NULL," "); 
+                    strcpy(previous, ""); 
+                    while (list != NULL){
+                        sprintf(auxiliar,"Group %s:",list);
+                        strcat(previous,auxiliar);
+                        list= strtok(NULL," "); 
+                        sprintf(auxiliar," %s ",list);
+                        strcat(previous,auxiliar);
+                        list= strtok(NULL," "); 
+                        sprintf(auxiliar,"Last MSG: %s\n",list);
+                        strcat(previous,auxiliar);
+                        list= strtok(NULL," ");
+                    }
+                    printf("%s", previous); 
+                }
             }
         }
 
+        else if(strcmp(command,"my_groups")==0 || strcmp(command,"mgl")==0){
+            if(strcmp(user_logged,"") == 0){
+                printf("You are not logged in!\n"); 
+            }
+            else{
+                char buffer[3070]; /*MAX AMOUNT*/
+                int N_Groups;
+                char send[12];
+                char previous[3070];
+                char *list; 
+                char auxiliar[30];
+                sprintf(send,"GLM %s",user_logged);
+                n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
+                if(n == -1) exit(1); 
+                addrlen = sizeof(addr);
+                TimerON(fd);
+                n=recvfrom(fd,buffer,3070,0,(struct sockaddr*)&addr,&addrlen);
+                
+                if(n==-1)  printf("Server error try again please\n");
+            
+                else{
+                    buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
+                    TimerOFF(fd);
+                    if(strcmp(buffer,"RGM E_USR") == 0){
+                        printf("Invalid User ID\n");
+                    }
+                    else if(strcmp(buffer,"RGM 0") == 0){
+                        printf("User isnt subscribed to any groups\n");
+                    }
+                    else{
+                    
+                        list= strtok(buffer," ");  
+                        list= strtok(NULL," ");  
+                        list= strtok(NULL," "); 
+                        strcpy(previous, ""); 
+                        while (list != NULL){
+                            sprintf(auxiliar,"Group %s:",list);
+                            strcat(previous,auxiliar);
+                            list= strtok(NULL," "); 
+                            sprintf(auxiliar," %s ",list);
+                            strcat(previous,auxiliar);
+                            list= strtok(NULL," "); 
+                            sprintf(auxiliar,"Last MSG: %s\n",list);
+                            strcat(previous,auxiliar);
+                            list= strtok(NULL," ");
+                        }
+                        printf("%s", previous); 
+                    }
+                }   
+            }
+        }
 
+        else if(strcmp(command,"select")==0 || strcmp(command,"sag")==0){
+            int gid;
+            sscanf(input,"%s %d",command,&gid);
+            if(strcmp(user_logged,"") == 0){
+                printf("You are not logged in!\n"); 
+            }
+            else if(gid < 0 || gid > 99){
+                printf("GID must be between 0 and 99\n");
+            }
+            
+            else{
+                if(gid < 10){
+                    sprintf(gid_selected,"0%d",gid);
+                }
+                else if(gid >= 10){
+                    sprintf(gid_selected,"%d",gid);
+                }
+                printf("Selected GID %s\n",gid_selected);
+            }
+        }
+
+        else if(strcmp(command,"showgid")==0 || strcmp(command,"sg")==0){
+            if(strcmp(user_logged,"") == 0){
+                printf("You are not logged in!\n"); 
+            }
+            else if(strcmp(gid_selected,"") == 0){
+                printf("No group selected yet\n"); 
+            }
+            else{
+            printf("GROUP ID %s\n",gid_selected);
+            }
+        }
 
         else if(strcmp(command,"subscribe")==0 || strcmp(command,"s")==0){
             char send[50];
@@ -341,7 +433,8 @@ int main(int argc,char* argv[]){
                         printf("Group subscribed to\n");
                     }
                     else if(strcmp(RGS,"RGS") == 0 && strcmp(RGS_STATUS,"NEW") == 0){
-                        printf("New group with GID %s created and subscribed to\n",gid_created);
+                        printf("User %s created group %s named %s\nUser %s subscribed to group %s\n",user_logged,gid_created,gname,user_logged,gid_created);
+                        
                     }
                     else if(strcmp(buffer,"RGS E_USR") == 0){
                         printf("Invalid user\n");
@@ -362,6 +455,57 @@ int main(int argc,char* argv[]){
                     printf("Something went wrong,try again\n");
                     }
                 }
+            }
+        }
+
+        else if(strcmp(command,"unsubscribe")==0 || strcmp(command,"u")==0){
+            char send[50];
+            char gname[25];
+            int gid;
+            char gid_str[3];
+            sscanf(input,"%s %d",command,&gid);
+            if(strcmp(user_logged,"") == 0){ /*Check User logged in*/
+                printf("User must be logged in\n");
+            }
+            
+            else if(gid <= 0 || gid > 99){
+                printf("GID must be between 1 and 99");
+            }
+            else{
+                char buffer[12];
+                if(gid < 10){
+                    sprintf(gid_str,"0%d",gid);
+                }
+                else if(gid >= 10){
+                    sprintf(gid_str,"%d",gid);
+                }
+                
+                sprintf(send,"GUR %s %s\n",user_logged,gid_str);
+                n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
+                if(n == -1) exit(1);
+                addrlen = sizeof(addr);
+                TimerON(fd);
+                n=recvfrom(fd,buffer,12,0,(struct sockaddr*)&addr,&addrlen);
+                if(n==-1)  printf("Server error try again please\n");
+                else{
+                    TimerOFF(fd);
+                    buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
+                    if(strcmp(buffer,"RGU OK") == 0){
+                        printf("User %s unsubscribed to GROUP %s\n",user_logged,gid_str);
+                    }
+                    else if(strcmp(buffer,"RGU E_USR") == 0){
+                        printf("Invalid User ID\n");
+                    }
+                    else if(strcmp(buffer,"RGU E_GRP") == 0){
+                        printf("Invalid Group ID\n");
+                    }
+                    else if(strcmp(buffer,"RGU NOK") == 0){
+                        printf("Couldnt unsubscribe\n");
+                    }
+                    else{
+                        printf("Something went wrong,try again\n");
+                    }
+                }   
             }
         }   
 
