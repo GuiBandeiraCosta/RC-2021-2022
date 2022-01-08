@@ -266,6 +266,7 @@ int main(int argc, char *argv[]){
             char check_pass[9];
             char user_login[30];
             char user_password[30];
+            char group_member_path[30];
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
                 n = sendto(fd,"RUN NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
@@ -279,6 +280,15 @@ int main(int argc, char *argv[]){
 		        printf("%s\n",check_pass);
                 fclose(f);
                 if(strcmp(password,check_pass) == 0){
+                    GROUPLIST *list = malloc(sizeof(GROUPLIST));
+                    ListGroupsDir(list);
+                    for(int i=0; i < list->no_groups;i++){
+                        sprintf(group_member_path,"GROUPS/%s/%s.txt",list->group_no[i],uid_str);
+                        if(access( group_member_path, F_OK ) == 0){
+                            unlink(group_member_path);
+                        }
+                    }
+                    free(list);
                     DelPassFile(uid_str);
                     DelLoginFile(uid_str);
                     DelUserDir(uid_str);
@@ -299,6 +309,7 @@ int main(int argc, char *argv[]){
             char check_pass[9];
             char user_login[30];
             char user_password[30];
+            
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
                 n = sendto(fd,"ROU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
@@ -368,6 +379,7 @@ int main(int argc, char *argv[]){
                         counter++;
                     }
                 }
+                free(list);
                 if(counter == 0){
                     n = sendto(fd,"RGM 0\n",7,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
@@ -376,7 +388,7 @@ int main(int argc, char *argv[]){
                     sprintf(auxiliar,"RGM %d",counter);
                     strcat(send,auxiliar);
                     strcat(send,aux_big);
-                    free(list);
+                    
                     n = sendto(fd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }

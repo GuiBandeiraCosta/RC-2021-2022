@@ -258,7 +258,11 @@ int main(int argc,char* argv[]){
             printf("USER LOGGED IN ID %s\n",user_logged);
             }
         }
-        
+        else if(strcmp(command,"exit") == 0){
+            freeaddrinfo(res);
+            close(fd);
+            exit(0);
+        }
         
         else if(strcmp(command,"groups")==0 || strcmp(command,"gl")==0){
             char buffer[3070]; /*MAX AMOUNT*/
@@ -511,12 +515,6 @@ int main(int argc,char* argv[]){
 
         
     }/*END OF WHILE*/
-    
-
-    freeaddrinfo(res);
-    close(fd);
-
-   
     return 0 ;
 }
     
