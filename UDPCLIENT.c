@@ -9,8 +9,8 @@
 #include <stdio.h>
 #define PORT_DEF 58011
 
-char dsip[30];
-char dsport[8];
+char dsip[30] = "";
+char dsport[8] = "";
 int dsport_err;
 char user_logged[6] = "";
 char logged_pass[9] = "";
@@ -87,14 +87,14 @@ int main(int argc,char* argv[]){
     
     if(errcode!=0) /*error*/ exit(1);
     while(1){
-        char input[240];
-        char command[13];
+        char input[240] = "";
+        char command[13] = "";
         fgets(input,240,stdin);
         sscanf(input,"%s",command);
         if(strcmp(command,"reg")== 0){
-            char send[20];
-            char uid_str[6];
-            char password[9];
+            char send[20] = "";
+            char uid_str[6] = "";
+            char password[9] = "";
             
             sscanf(input,"%s %s %s",command,uid_str,password);
             
@@ -109,7 +109,7 @@ int main(int argc,char* argv[]){
                
             }
             else{
-                char buffer[10];
+                char buffer[10] = "";
                 sprintf(send,"REG %s %s\n",uid_str,password);
                 n=sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
                 if(n==-1)  exit(1);
@@ -140,9 +140,9 @@ int main(int argc,char* argv[]){
         }
         }
         else if(strcmp(command,"login") == 0){
-            char send[20];
-            char uid_str[6];
-            char password[9];
+            char send[20] = "";
+            char uid_str[6] = "";
+            char password[9] = "";
             sscanf(input,"%s %s %s",command,uid_str,password);
             if((strcmp(user_logged,uid_str) != 0 || strcmp(password,logged_pass) != 0 )&&(strcmp(user_logged,"") != 0 && strcmp(logged_pass,"") != 0)){
                         printf("There is a User already logged in\n");
@@ -156,7 +156,7 @@ int main(int argc,char* argv[]){
                 printf("Password must be 8 digits long\n");   
             }
             else{
-                char buffer[10];
+                char buffer[10] = "";
                 sprintf(send,"LOG %s %s\n",uid_str,password);
                 n=sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
                 if(n==-1)  exit(1);
@@ -183,9 +183,9 @@ int main(int argc,char* argv[]){
             }
         }
         else if(strcmp(command,"unregister")==0 || strcmp(command,"unr")==0){
-            char send[20];
-            char uid_str[6];
-            char password[9];
+            char send[20] = "";
+            char uid_str[6] = "";
+            char password[9] = "";
             sscanf(input,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5){ 
                 printf("Invalid UID: Must be 5 digits long\n");     
@@ -194,7 +194,7 @@ int main(int argc,char* argv[]){
                 printf("Password must be 8 digits long\n");   
             }
             else{
-                char buffer[10];
+                char buffer[10] = "";
                 sprintf(send,"UNR %s %s\n",uid_str,password);
                 n=sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
                 if(n==-1)  exit(1);
@@ -220,12 +220,12 @@ int main(int argc,char* argv[]){
             
         }
         else if(strcmp(command,"logout") == 0){
-            char send[20];
+            char send[20] = "";
             if(strcmp(user_logged,"") == 0 || strcmp(logged_pass,"") == 0){
                 printf("User not logged in\n");
             }
             else{
-                char buffer[10];
+                char buffer[10] = "";
                 sprintf(send,"OUT %s %s\n",user_logged,logged_pass);
                 n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
                 if(n == -1) exit(1);
@@ -255,7 +255,7 @@ int main(int argc,char* argv[]){
                 printf("You are not logged in!\n"); 
             }
             else{
-            printf("USER LOGGED IN ID %s\n",user_logged);
+            printf("User logged in ID is %s\n",user_logged);
             }
         }
         else if(strcmp(command,"exit") == 0){
@@ -265,11 +265,11 @@ int main(int argc,char* argv[]){
         }
         
         else if(strcmp(command,"groups")==0 || strcmp(command,"gl")==0){
-            char buffer[3070]; /*MAX AMOUNT*/
+            char buffer[3070] = ""; /*MAX AMOUNT*/
             int N_Groups;
-            char previous[3070]; 
+            char previous[3070] = ""; 
             char *list; 
-            char auxiliar[30];
+            char auxiliar[30] = "";
             
             n = sendto(fd,"GLS\n",4,0,res->ai_addr,res->ai_addrlen);
             if(n == -1) exit(1); 
@@ -311,12 +311,12 @@ int main(int argc,char* argv[]){
                 printf("You are not logged in!\n"); 
             }
             else{
-                char buffer[3070]; /*MAX AMOUNT*/
+                char buffer[3070] = ""; /*MAX AMOUNT*/
                 int N_Groups;
-                char send[12];
-                char previous[3070];
+                char send[12] = "";
+                char previous[3070] = "";
                 char *list; 
-                char auxiliar[30];
+                char auxiliar[30] = "";
                 sprintf(send,"GLM %s",user_logged);
                 n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
                 if(n == -1) exit(1); 
@@ -327,18 +327,25 @@ int main(int argc,char* argv[]){
                 if(n==-1)  printf("Server error try again please\n");
             
                 else{
+                    
                     buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
                     TimerOFF(fd);
                     if(strcmp(buffer,"RGM E_USR") == 0){
                         printf("Invalid User ID\n");
                     }
                     else if(strcmp(buffer,"RGM 0") == 0){
-                        printf("User isnt subscribed to any groups\n");
+                        printf("User %s isnt subscribed to any groups\n",user_logged);
                     }
                     else{
-                    
+                        
                         list= strtok(buffer," ");  
-                        list= strtok(NULL," ");  
+                        list= strtok(NULL," ");
+                        if(strcmp(list,"1") == 0){
+                            printf("User %s is subscribed to the following group:\n",user_logged);
+                        }
+                        else{
+                            printf("User %s is subscribed to the following %s group:\n",user_logged,list);
+                        }
                         list= strtok(NULL," "); 
                         strcpy(previous, ""); 
                         while (list != NULL){
@@ -375,7 +382,7 @@ int main(int argc,char* argv[]){
                 else if(gid >= 10){
                     sprintf(gid_selected,"%d",gid);
                 }
-                printf("Selected GID %s\n",gid_selected);
+                printf("Selected group %s\n",gid_selected);
             }
         }
 
@@ -387,15 +394,15 @@ int main(int argc,char* argv[]){
                 printf("No group selected yet\n"); 
             }
             else{
-            printf("GROUP ID %s\n",gid_selected);
+            printf("Group ID is %s\n",gid_selected);
             }
         }
 
         else if(strcmp(command,"subscribe")==0 || strcmp(command,"s")==0){
-            char send[50];
-            char gname[25];
+            char send[50] = "";
+            char gname[25] = "";
             int gid;
-            char gid_str[3];
+            char gid_str[3] = "";
             sscanf(input,"%s %d %s",command,&gid,gname);
             if(strcmp(user_logged,"") == 0){ /*Check User logged in*/
                 printf("User must be logged in\n");
@@ -405,12 +412,12 @@ int main(int argc,char* argv[]){
                 printf("GID must be between 0 and 99");
             }
             else if(strlen(gname) > 24){ /*Check correct lenght group name */
-                printf("Gname cannot exceed 24 charachters\n");
+                printf("Group name cannot exceed 24 charachters\n");
             }
             
             
             else{
-                char buffer[15];
+                char buffer[15] = "";
                 if(gid < 10){
                     sprintf(gid_str,"0%d",gid);
                 }
@@ -427,9 +434,9 @@ int main(int argc,char* argv[]){
                 n=recvfrom(fd,buffer,15,0,(struct sockaddr*)&addr,&addrlen);
                 if(n==-1)  printf("Server error try again please\n");
                 else{
-                    char RGS[4];
-                    char RGS_STATUS[8];
-                    char gid_created[3];
+                    char RGS[4] = "";
+                    char RGS_STATUS[8] = "";
+                    char gid_created[3] = "";
                     buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
                     sscanf(buffer,"%s %s %s",RGS,RGS_STATUS,gid_created);
                     TimerOFF(fd);
@@ -463,10 +470,10 @@ int main(int argc,char* argv[]){
         }
 
         else if(strcmp(command,"unsubscribe")==0 || strcmp(command,"u")==0){
-            char send[50];
-            char gname[25];
+            char send[50] = "";
+            char gname[25] = "";
             int gid;
-            char gid_str[3];
+            char gid_str[3] = "";
             sscanf(input,"%s %d",command,&gid);
             if(strcmp(user_logged,"") == 0){ /*Check User logged in*/
                 printf("User must be logged in\n");
@@ -476,7 +483,7 @@ int main(int argc,char* argv[]){
                 printf("GID must be between 1 and 99");
             }
             else{
-                char buffer[12];
+                char buffer[12] = "";
                 if(gid < 10){
                     sprintf(gid_str,"0%d",gid);
                 }

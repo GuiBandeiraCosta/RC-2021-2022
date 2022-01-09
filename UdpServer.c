@@ -11,8 +11,8 @@
 #include <stdio.h>
 #define PORT_DEF 58011
 
-char dsip[30];
-char dsport[8];
+char dsip[30] = "";
+char dsport[8] = "";
 int flag_v = 0;
 int dsport_err;
 int n_clients = 0;
@@ -30,7 +30,7 @@ ssize_t n;
 socklen_t addrlen;
 struct addrinfo hints, *res;
 struct sockaddr_in addr;
-char buffer[128];
+char buffer[128] = "";
 /*end*/
 
 
@@ -39,7 +39,7 @@ int ListGroupsDir(GROUPLIST *list){
     struct dirent *dir;
     int i=0;
     FILE *fp;
-    char GIDname[530];
+    char GIDname[530] = "";
     list->no_groups=0;
     d = opendir("GROUPS");
     if (d){
@@ -71,8 +71,8 @@ int ListGroupsDir(GROUPLIST *list){
 
 
 int CreateUserDir(char UID[],char password[]){
-    char user_dirname[20];
-    char user_password[30];
+    char user_dirname[20] = "";
+    char user_password[30] = "";
     FILE *f;
     int ret;
    
@@ -87,14 +87,14 @@ int CreateUserDir(char UID[],char password[]){
 }
 
 int DelUserDir(char UID[]){
-    char user_dirname[20];
+    char user_dirname[20] = "";
     sprintf(user_dirname,"USERS/%s",UID);
     if(rmdir(user_dirname)==0) return(1);
     else return(0);
 }
 
 int DelPassFile(char UID[]){
-    char pathname[50];
+    char pathname[50] = "";
     sprintf(pathname,"USERS/%s/%s_pass.txt",UID,UID);
     if(unlink(pathname)==0)
     return(1);
@@ -103,7 +103,7 @@ int DelPassFile(char UID[]){
 }
 
 int DelLoginFile(char UID[]){
-    char pathname[30];
+    char pathname[30] = "";
     FILE *f;
     sprintf(pathname,"USERS/%s/%s_login.txt",UID,UID);
 
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]){
     if(n==-1) exit(1);
     while(1){
         addrlen = sizeof(addr);
-        char command[13];
+        char command[13] = "";
         n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
         if(n==-1) exit(1);
         printf("isto e o buffer %s\n",buffer);
@@ -197,8 +197,8 @@ int main(int argc, char *argv[]){
         /*REG*/
         if(strcmp(command,"REG")== 0){
             
-            char uid_str[6];
-            char password[9];
+            char uid_str[6] = "";
+            char password[9] = "";
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || (n_clients >= 100000)){ /*ERROR*/
@@ -226,11 +226,11 @@ int main(int argc, char *argv[]){
         }
         else if(strcmp(command,"LOG") == 0){
             FILE *f;
-            char uid_str[6];
-            char password[9];
-            char check_pass[9];
-            char user_login[30];
-            char user_password[30];
+            char uid_str[6] = "";
+            char password[9] = "";
+            char check_pass[9] = "";
+            char user_login[30] = "";
+            char user_password[30] = "";
             
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
@@ -261,12 +261,12 @@ int main(int argc, char *argv[]){
         }
         else if(strcmp(command,"UNR") == 0){
             FILE *f;
-            char uid_str[6];
-            char password[9];
-            char check_pass[9];
-            char user_login[30];
-            char user_password[30];
-            char group_member_path[30];
+            char uid_str[6] = "";
+            char password[9] = "";
+            char check_pass[9] = "";
+            char user_login[30] = "";
+            char user_password[30] = "";
+            char group_member_path[30] = "";
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
                 n = sendto(fd,"RUN NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
@@ -304,11 +304,11 @@ int main(int argc, char *argv[]){
         }
         else if(strcmp(command,"OUT") == 0){
             FILE *f;
-            char uid_str[6];
-            char password[9];
-            char check_pass[9];
-            char user_login[30];
-            char user_password[30];
+            char uid_str[6] = "";
+            char password[9] = "";
+            char check_pass[9] = "";
+            char user_login[30] = "";
+            char user_password[30] = "";
             
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
@@ -337,8 +337,8 @@ int main(int argc, char *argv[]){
         }
 
         else if(strcmp(command,"GLS") == 0){
-            char send[3070];
-            char auxiliar[50];
+            char send[3070] = "";
+            char auxiliar[50] = "";
             GROUPLIST *list = malloc(sizeof(GROUPLIST));
             ListGroupsDir(list);
             sprintf(send,"RGL %d",list->no_groups);
@@ -353,12 +353,12 @@ int main(int argc, char *argv[]){
             
         }
         else if(strcmp(command,"GLM") == 0){
-            char send[3070];
-            char aux_big[3070];
-            char auxiliar[50];
-            char uid_str[6];
-            char user_login[30];
-            char group_member_path[30];
+            char send[3070] = "";
+            char aux_big[3070] = "";
+            char auxiliar[50] = "";
+            char uid_str[6] = "";
+            char user_login[30] = "";
+            char group_member_path[30] = "";
             int counter = 0;
             sscanf(buffer,"%s %s",command,uid_str);
             sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
@@ -370,7 +370,6 @@ int main(int argc, char *argv[]){
             else{
                 GROUPLIST *list = malloc(sizeof(GROUPLIST));
                 ListGroupsDir(list);
-                
                 for(int i=0; i < list->no_groups;i++){
                     sprintf(group_member_path,"GROUPS/%s/%s.txt",list->group_no[i],uid_str);
                     if(access( group_member_path, F_OK ) == 0){
@@ -379,8 +378,9 @@ int main(int argc, char *argv[]){
                         counter++;
                     }
                 }
-                free(list);
+                
                 if(counter == 0){
+                    free(list);
                     n = sendto(fd,"RGM 0\n",7,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
@@ -388,7 +388,8 @@ int main(int argc, char *argv[]){
                     sprintf(auxiliar,"RGM %d",counter);
                     strcat(send,auxiliar);
                     strcat(send,aux_big);
-                    
+                    strcat(send,"\n");
+                    free(list);       
                     n = sendto(fd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
@@ -401,13 +402,13 @@ int main(int argc, char *argv[]){
         else if(strcmp(command,"GSR") == 0){
             
                 FILE *f;
-                char uid_str[6];
-                char gid_str[3];
-                char gname[25];
-                char gname_checker[25];
-                char user_login[30];
-                char group_gid_dir[10];
-                char group_namef[32];
+                char uid_str[6] = "";
+                char gid_str[3] = "";
+                char gname[25] =  "";
+                char gname_checker[25] = "";
+                char user_login[30] = "";
+                char group_gid_dir[10] = "";
+                char group_namef[32] = "";
                 
         
                 sscanf(buffer,"%s %s %s %s",command,uid_str,gid_str,gname);
@@ -446,7 +447,7 @@ int main(int argc, char *argv[]){
                             if(n==-1) exit(1);
                         }
                         else{
-                            char subscribe[21];
+                            char subscribe[21] = "";
                             sprintf(subscribe,"%s/%s.txt",group_gid_dir,uid_str);
                             f = fopen(subscribe,"w");
                             fclose(f);
@@ -457,8 +458,8 @@ int main(int argc, char *argv[]){
                     closedir(d);
                 }
                 else if(strcmp(gid_str,"00") == 0){
-                    char send[20];
-                    char n_groups_str[3];
+                    char send[20] = "";
+                    char n_groups_str[3] = "";
                     int ret;
                    
                     int name_exists = -1;
@@ -488,7 +489,7 @@ int main(int argc, char *argv[]){
                         f = fopen(group_namef,"w");
                         fputs(gname,f);
                         fclose(f);
-                        char subscribe[21];
+                        char subscribe[21] = "";
                         sprintf(subscribe,"%s/%s.txt",group_gid_dir,uid_str);
                         f = fopen(subscribe,"w");
                         fclose(f);
@@ -503,12 +504,12 @@ int main(int argc, char *argv[]){
         else if(strcmp(command,"GUR") == 0){
                 FILE *f;
                 
-                char uid_str[6];
-                char gid_str[3];
-                char user_login[30];
-                char group_gid_name[25];
-                char dir_group_sub[25];
-                char group_namef[32];
+                char uid_str[6] = "";
+                char gid_str[3] = "";
+                char user_login[30] = "";
+                char group_gid_name[25] = "";
+                char dir_group_sub[25] = "";
+                char group_namef[32] = "";
                 int error;
                 
         
