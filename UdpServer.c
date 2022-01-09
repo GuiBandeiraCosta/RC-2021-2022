@@ -26,7 +26,7 @@ typedef struct GROUPLIST{
 }GROUPLIST;
 
 /*Connection*/
-int fd,afd,newfd,errcode = 0;
+int udpfd,tcpfd,newfd,errcode = 0;
 fd_set rfds;
 enum {idle,busy} state;
 int maxfd,checker;
@@ -179,10 +179,10 @@ int main(int argc, char *argv[]){
     ret=mkdir("GROUPS",0700);
     
     /*Connection*/
-    fd= socket(AF_INET,SOCK_DGRAM,0) /*UDP*/;
-    if(fd ==-1) exit(1);
-    afd= socket(AF_INET,SOCK_DGRAM,0) /*TCP*/;
-    if(afd ==-1) printf("1");
+    udpfd = socket(AF_INET,SOCK_DGRAM,0) /*UDP*/;
+    if(udpfd ==-1) exit(1);
+    tcpfd= socket(AF_INET,SOCK_DGRAM,0) /*TCP*/;
+    if(tcpfd ==-1) printf("1");
     memset(&hints,0,sizeof hints);
     hints.ai_family=AF_INET;
     hints.ai_socktype=SOCK_DGRAM;
@@ -190,7 +190,12 @@ int main(int argc, char *argv[]){
     sprintf(dsport, "%d",dsport_err);
     errcode=getaddrinfo(NULL,dsport,&hints,&res);
     if(errcode != 0) printf("3");
-   
+    n= bind(udpfd,res->ai_addr,res->ai_addrlen);
+    if(n==-1) printf("4");
+    n= bind(tcpfd,res->ai_addr,res->ai_addrlen);
+    if(n==-1) printf("Nao consegui dar bind tcpfd\n");
+    if(listen(tcpfd,5) == 1) printf("7");
+        
     
     
     
@@ -198,22 +203,19 @@ int main(int argc, char *argv[]){
         char command[13] = "";
         char buffer3[128] = "";
         FD_ZERO(&rfds);
-        FD_SET(fd,&rfds);maxfd=fd;
-        n= bind(fd,res->ai_addr,res->ai_addrlen);
-        if(n==-1) printf("2");
-        n= bind(afd,res->ai_addr,res->ai_addrlen);
-        if(n==-1) printf("4");
-        if(listen(afd,5) == 1) printf("5");
+        FD_SET(udpfd,&rfds);
+        FD_SET(tcpfd,&rfds);maxfd=udpfd;
         
-        if(state == busy){FD_SET(afd,&rfds);maxfd=max(maxfd,afd);}
+        
+        if(state == busy){FD_SET(tcpfd,&rfds);maxfd=max(maxfd,tcpfd);}
         checker=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval *)NULL);
         if(checker <= 0) printf("6");
-        if(FD_ISSET(fd,&rfds)){ /*UDP */
+        if(FD_ISSET(udpfd,&rfds)){ /*UDP */
             switch(state){
                 case idle:
                     state = busy;
                     addrlen = sizeof(addr);
-                    n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
+                    n=recvfrom(udpfd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
                     if(n==-1) exit(1);
                     printf("isto e o buffer %s\n",buffer);
                     sscanf(buffer,"%s",command);
@@ -223,11 +225,11 @@ int main(int argc, char *argv[]){
                     break;
             }
         }
-        if(FD_ISSET(afd,&rfds)){ /*TCP*/
+        if(FD_ISSET(tcpfd,&rfds)){ /*TCP*/
             switch(state){
                 case idle:
                     state = busy;
-                    if(newfd = accept(fd,(struct sockaddr*)&addr,&addrlen) == 1) exit(1);
+                    if(newfd = accept(udpfd,(struct sockaddr*)&addr,&addrlen) == 1) exit(1);
                     n = read(newfd,buffer3,128);
                     if (n== -1) exit(1);
                     write(1,"received: ",10);write(1,buffer,n);
@@ -247,22 +249,22 @@ int main(int argc, char *argv[]){
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || (n_clients >= 100000)){ /*ERROR*/
-                 n = sendto(fd,"RRG NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                 n = sendto(udpfd,"RRG NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                  if(n==-1) exit(1);
                  printf("Fiz isto1\n");
             }
             else if(SearchUID(uid_str) != 0){
-                 n = sendto(fd,"RRG DUP\n",n,0,(struct sockaddr*)&addr,addrlen);
+                 n = sendto(udpfd,"RRG DUP\n",n,0,(struct sockaddr*)&addr,addrlen);
                  if(n==-1) exit(1);
                  printf("Fiz isto2\n");
             }
             else{
                 if (CreateUserDir(uid_str,password) == 0){
-                    n = sendto(fd,"RRG NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RRG NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
                 else{
-                    n = sendto(fd,"RRG OK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RRG OK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                     n_clients += 1;
                     printf("Fiz isto3\n");
@@ -279,7 +281,7 @@ int main(int argc, char *argv[]){
             
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
-                n = sendto(fd,"RLO NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                n = sendto(udpfd,"RLO NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                 if(n==-1) exit(1);
             }
             else{    
@@ -293,13 +295,13 @@ int main(int argc, char *argv[]){
                 f = fopen(user_login,"w");
                 if(f != NULL){
                     
-                    n = sendto(fd,"RLO OK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RLO OK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
                 fclose(f);
             }
                 else{
-                    n = sendto(fd,"RLO NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RLO NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
             }
@@ -314,7 +316,7 @@ int main(int argc, char *argv[]){
             char group_member_path[30] = "";
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
-                n = sendto(fd,"RUN NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                n = sendto(udpfd,"RUN NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                 if(n==-1) exit(1);
             }
             else{
@@ -337,11 +339,11 @@ int main(int argc, char *argv[]){
                     DelPassFile(uid_str);
                     DelLoginFile(uid_str);
                     DelUserDir(uid_str);
-                    n = sendto(fd,"RUN OK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RUN OK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
                 else{
-                    n = sendto(fd,"RUN NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RUN NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
             }
@@ -357,7 +359,7 @@ int main(int argc, char *argv[]){
             
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
-                n = sendto(fd,"ROU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                n = sendto(udpfd,"ROU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                 if(n==-1) exit(1);
             }
             else{
@@ -370,11 +372,11 @@ int main(int argc, char *argv[]){
                 if(strcmp(password,check_pass) == 0 && f != NULL){
                     fclose(f);
                     DelLoginFile(uid_str);
-                    n = sendto(fd,"ROU OK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"ROU OK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
                 else{
-                    n = sendto(fd,"ROU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"ROU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
             }
@@ -393,7 +395,7 @@ int main(int argc, char *argv[]){
             }
             strcat(send,"\n");
             free(list);
-            n = sendto(fd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
+            n = sendto(udpfd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
             if(n==-1) exit(1);
             
         }
@@ -409,7 +411,7 @@ int main(int argc, char *argv[]){
             sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
                 
             if(strlen(uid_str)!=5  || access( user_login, F_OK ) != 0){
-                    n = sendto(fd,"RGM E_USR\n",11,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RGM E_USR\n",11,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
             }
             else{
@@ -426,7 +428,7 @@ int main(int argc, char *argv[]){
                 
                 if(counter == 0){
                     free(list);
-                    n = sendto(fd,"RGM 0\n",7,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RGM 0\n",7,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
                 else{
@@ -435,7 +437,7 @@ int main(int argc, char *argv[]){
                     strcat(send,aux_big);
                     strcat(send,"\n");
                     free(list);       
-                    n = sendto(fd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
             }
@@ -461,14 +463,14 @@ int main(int argc, char *argv[]){
                 sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
                 
                 if(strlen(uid_str)!=5  || strlen(gname) > 25|| n_groups >= 99){
-                    n = sendto(fd,"RGS NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RGS NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                     
                 }
                 
                 if( access( user_login, F_OK ) != 0 ){ /*NOT LOGGED IN*/
                     
-                    n = sendto(fd,"RGS E_USR\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RGS E_USR\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
                 
@@ -478,7 +480,7 @@ int main(int argc, char *argv[]){
                     DIR *d;
                     d = opendir(group_gid_dir);
                     if(d ==NULL){
-                        n = sendto(fd,"RGS E_GRP\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                        n = sendto(udpfd,"RGS E_GRP\n",n,0,(struct sockaddr*)&addr,addrlen); 
                         if(n==-1) exit(1);
                     }
                     else{
@@ -488,7 +490,7 @@ int main(int argc, char *argv[]){
                         fscanf(f,"%24s",gname_checker);
                         fclose(f);
                         if(strcmp(gname_checker,gname)!= 0){
-                            n = sendto(fd,"RGS E_GNAME\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                            n = sendto(udpfd,"RGS E_GNAME\n",n,0,(struct sockaddr*)&addr,addrlen); 
                             if(n==-1) exit(1);
                         }
                         else{
@@ -496,7 +498,7 @@ int main(int argc, char *argv[]){
                             sprintf(subscribe,"%s/%s.txt",group_gid_dir,uid_str);
                             f = fopen(subscribe,"w");
                             fclose(f);
-                            n = sendto(fd,"RGS OK\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                            n = sendto(udpfd,"RGS OK\n",n,0,(struct sockaddr*)&addr,addrlen); 
                             if(n==-1) exit(1);
                         }
                     }
@@ -517,7 +519,7 @@ int main(int argc, char *argv[]){
                     }
                     free(list);
                     if(name_exists == 1){
-                        n = sendto(fd,"RGS E_GNAME\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                        n = sendto(udpfd,"RGS E_GNAME\n",n,0,(struct sockaddr*)&addr,addrlen); 
                         if(n==-1) exit(1);
                     }
                     else{
@@ -539,7 +541,7 @@ int main(int argc, char *argv[]){
                         f = fopen(subscribe,"w");
                         fclose(f);
                         sprintf(send,"RGS NEW %s\n",n_groups_str);
-                        n = sendto(fd,send,n,0,(struct sockaddr*)&addr,addrlen); 
+                        n = sendto(udpfd,send,n,0,(struct sockaddr*)&addr,addrlen); 
                         if(n==-1) exit(1);
                     }
                 }
@@ -564,30 +566,30 @@ int main(int argc, char *argv[]){
                 sprintf(group_gid_name,"GROUPS/%s/%s_name.txt",gid_str,gid_str);
                 sprintf(dir_group_sub,"GROUPS/%s/%s.txt",gid_str,uid_str);
                 if(strlen(uid_str)!=5  ||strlen(gid_str) !=2){
-                    n = sendto(fd,"RGU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RGU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
                 
                 else if( access( user_login, F_OK ) != 0 ){ /*NOT LOGGED IN*/
-                    n = sendto(fd,"RGU E_USR\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    n = sendto(udpfd,"RGU E_USR\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
                 }
                 else if(access( group_gid_name, F_OK ) != 0){ /* GROUP Doesnt Exist */
-                    n = sendto(fd,"RGU E_GRP\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                    n = sendto(udpfd,"RGU E_GRP\n",n,0,(struct sockaddr*)&addr,addrlen); 
                     if(n==-1) exit(1);
                 }
                  else if(access( dir_group_sub, F_OK ) != 0){ /* User is not subbed*/
-                    n = sendto(fd,"RGU E_USR\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                    n = sendto(udpfd,"RGU E_USR\n",n,0,(struct sockaddr*)&addr,addrlen); 
                     if(n==-1) exit(1);
                 }
                 else{
                     error = unlink(dir_group_sub);
                     if(error == 0){
-                        n = sendto(fd,"RGU OK\n",n,0,(struct sockaddr*)&addr,addrlen); 
+                        n = sendto(udpfd,"RGU OK\n",n,0,(struct sockaddr*)&addr,addrlen); 
                         if(n==-1) exit(1);
                     }
                     else{
-                        n = sendto(fd,"RGU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                        n = sendto(udpfd,"RGU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                         if(n==-1) exit(1);
                     }
                 }
@@ -633,7 +635,7 @@ int main(int argc, char *argv[]){
     
     /*endof*/
     freeaddrinfo(res);
-    close(fd);
+    close(udpfd);
 
     printf("DSPORT %d Flag %d\n",dsport_err,flag_v);
     

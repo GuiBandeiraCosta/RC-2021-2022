@@ -95,8 +95,8 @@ int main(int argc,char* argv[]){
         sscanf(input,"%s",command);
         if(strcmp(command, "a") == 0){
             printf("OLA \n");
-             n = connect(afd,res->ai_addr,addrlen);
-             if(n == -1) printf("FUCKED");
+            n = connect(afd,res->ai_addr,addrlen);
+            if(n == -1) printf("FUCKED");
             n = write (afd,"Hello!\n",7);
             n = read(afd,buffer3,128);
             write(1,"Echo : ",6); write(1,buffer3,n);
