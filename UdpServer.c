@@ -10,6 +10,7 @@
 #include <netdb.h>
 #include <stdio.h>
 #define PORT_DEF 58011
+#define max(A,B) ((A)>=(B)?(A):(B))
 
 char dsip[30] = "";
 char dsport[8] = "";
@@ -25,7 +26,10 @@ typedef struct GROUPLIST{
 }GROUPLIST;
 
 /*Connection*/
-int fd,errcode;
+int fd,afd,newfd,errcode = 0;
+fd_set rfds;
+enum {idle,busy} state;
+int maxfd,checker;
 ssize_t n;
 socklen_t addrlen;
 struct addrinfo hints, *res;
@@ -175,25 +179,66 @@ int main(int argc, char *argv[]){
     ret=mkdir("GROUPS",0700);
     
     /*Connection*/
-    fd= socket(AF_INET,SOCK_DGRAM,0);
+    fd= socket(AF_INET,SOCK_DGRAM,0) /*UDP*/;
     if(fd ==-1) exit(1);
+    afd= socket(AF_INET,SOCK_DGRAM,0) /*TCP*/;
+    if(afd ==-1) printf("1");
     memset(&hints,0,sizeof hints);
     hints.ai_family=AF_INET;
     hints.ai_socktype=SOCK_DGRAM;
     hints.ai_flags=AI_PASSIVE;
     sprintf(dsport, "%d",dsport_err);
     errcode=getaddrinfo(NULL,dsport,&hints,&res);
-    if(errcode != 0) exit(1);
-
-    n= bind(fd,res->ai_addr,res->ai_addrlen);
-    if(n==-1) exit(1);
+    if(errcode != 0) printf("3");
+   
+    
+    
+    
     while(1){
-        addrlen = sizeof(addr);
         char command[13] = "";
-        n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
-        if(n==-1) exit(1);
-        printf("isto e o buffer %s\n",buffer);
-        sscanf(buffer,"%s",command);
+        char buffer3[128] = "";
+        FD_ZERO(&rfds);
+        FD_SET(fd,&rfds);maxfd=fd;
+        n= bind(fd,res->ai_addr,res->ai_addrlen);
+        if(n==-1) printf("2");
+        n= bind(afd,res->ai_addr,res->ai_addrlen);
+        if(n==-1) printf("4");
+        if(listen(afd,5) == 1) printf("5");
+        
+        if(state == busy){FD_SET(afd,&rfds);maxfd=max(maxfd,afd);}
+        checker=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval *)NULL);
+        if(checker <= 0) printf("6");
+        if(FD_ISSET(fd,&rfds)){ /*UDP */
+            switch(state){
+                case idle:
+                    state = busy;
+                    addrlen = sizeof(addr);
+                    n=recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
+                    if(n==-1) exit(1);
+                    printf("isto e o buffer %s\n",buffer);
+                    sscanf(buffer,"%s",command);
+                    state = idle;
+                    freeaddrinfo(res);
+                case busy:
+                    break;
+            }
+        }
+        if(FD_ISSET(afd,&rfds)){ /*TCP*/
+            switch(state){
+                case idle:
+                    state = busy;
+                    if(newfd = accept(fd,(struct sockaddr*)&addr,&addrlen) == 1) exit(1);
+                    n = read(newfd,buffer3,128);
+                    if (n== -1) exit(1);
+                    write(1,"received: ",10);write(1,buffer,n);
+                    n = write(newfd,buffer,n);
+                    if( n == -1)exit(1);
+                    close(newfd);
+                    freeaddrinfo(res);
+                case busy:
+                    break;
+            }
+        }
         /*REG*/
         if(strcmp(command,"REG")== 0){
             
@@ -547,6 +592,40 @@ int main(int argc, char *argv[]){
                     }
                 }
         }
+        /*END OF ALL UDP COMMANDS */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

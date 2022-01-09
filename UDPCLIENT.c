@@ -17,7 +17,7 @@ char logged_pass[9] = "";
 char gid_selected[3] = "";
 
 /* Connection*/
-int fd,errcode;
+int fd,afd,errcode = 0;
 ssize_t n;
 socklen_t addrlen;
 struct addrinfo hints, *res;
@@ -79,6 +79,7 @@ int main(int argc,char* argv[]){
     sprintf(dsport, "%d",dsport_err);
     printf(" ID %s  PORT %s\n",dsip,dsport);
     fd=socket(AF_INET,SOCK_DGRAM,0); //UDP socket
+    afd= socket(AF_INET,SOCK_DGRAM,0) /*TCP*/;
     if(fd==-1) exit(1);
     memset(&hints,0,sizeof hints);
     hints.ai_family=AF_INET; //IPv4
@@ -89,9 +90,18 @@ int main(int argc,char* argv[]){
     while(1){
         char input[240] = "";
         char command[13] = "";
+        char buffer3[128] = "";
         fgets(input,240,stdin);
         sscanf(input,"%s",command);
-        if(strcmp(command,"reg")== 0){
+        if(strcmp(command, "a") == 0){
+            printf("OLA \n");
+             n = connect(afd,res->ai_addr,addrlen);
+             if(n == -1) printf("FUCKED");
+            n = write (afd,"Hello!\n",7);
+            n = read(afd,buffer3,128);
+            write(1,"Echo : ",6); write(1,buffer3,n);
+        }
+        else if(strcmp(command,"reg")== 0){
             char send[20] = "";
             char uid_str[6] = "";
             char password[9] = "";
