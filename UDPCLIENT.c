@@ -20,7 +20,7 @@ char gid_selected[3] = "";
 int fd,afd,errcode = 0;
 ssize_t n;
 socklen_t addrlen;
-struct addrinfo hints, *res;
+struct addrinfo hints_fd,hints_tcp, *res_udp, *res_tcp;
 struct sockaddr_in addr;
 /*end*/
 
@@ -79,27 +79,44 @@ int main(int argc,char* argv[]){
     sprintf(dsport, "%d",dsport_err);
     printf(" ID %s  PORT %s\n",dsip,dsport);
     fd=socket(AF_INET,SOCK_DGRAM,0); //UDP socket
-    afd= socket(AF_INET,SOCK_DGRAM,0) /*TCP*/;
-    if(fd==-1) exit(1);
-    memset(&hints,0,sizeof hints);
-    hints.ai_family=AF_INET; //IPv4
-    hints.ai_socktype=SOCK_DGRAM; //UDP socket
-    errcode=getaddrinfo(dsip,dsport,&hints,&res);
     
+    if(fd==-1) exit(1);
+    if (afd == -1) exit(1);
+   
+    memset(&hints_fd,0,sizeof hints_fd);
+    hints_fd.ai_family=AF_INET; //IPv4
+    hints_fd.ai_socktype=SOCK_DGRAM; //UDP socket
+
+   
+    memset(&hints_tcp,0,sizeof hints_tcp);
+    hints_tcp.ai_family=AF_INET; //IPv4
+    hints_tcp.ai_socktype=SOCK_STREAM; //TCP socket
+
+    errcode=getaddrinfo(dsip,dsport,&hints_fd,&res_udp);
+    if(errcode!=0) /*error*/ exit(1);
+    errcode=getaddrinfo(dsip,dsport,&hints_tcp,&res_tcp);
     if(errcode!=0) /*error*/ exit(1);
     while(1){
         char input[240] = "";
         char command[13] = "";
-        char buffer3[128] = "";
+        char buffer3[1000] = "";
         fgets(input,240,stdin);
         sscanf(input,"%s",command);
         if(strcmp(command, "a") == 0){
+            afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
             printf("OLA \n");
-            n = connect(afd,res->ai_addr,addrlen);
-            if(n == -1) printf("FUCKED");
-            n = write (afd,"Hello!\n",7);
-            n = read(afd,buffer3,128);
+            n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+            if(n == -1) printf("help\n");
+            n = write (afd,"ULS 10\n",7);
+            printf("OLA2\n");
+            if ( n == -1) printf("HELP2\n");
+            n = read(afd,buffer3,1000);
+            n = read(afd,buffer3,1000);
+            printf("OLA3\n");
+            if ( n == -1) printf("HELP3\n");
             write(1,"Echo : ",6); write(1,buffer3,n);
+            close(afd);
+            
         }
         else if(strcmp(command,"reg")== 0){
             char send[20] = "";
@@ -121,7 +138,7 @@ int main(int argc,char* argv[]){
             else{
                 char buffer[10] = "";
                 sprintf(send,"REG %s %s\n",uid_str,password);
-                n=sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
+                n=sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
                 if(n==-1)  exit(1);
                 TimerON(fd);
                 addrlen=sizeof(addr);
@@ -168,7 +185,7 @@ int main(int argc,char* argv[]){
             else{
                 char buffer[10] = "";
                 sprintf(send,"LOG %s %s\n",uid_str,password);
-                n=sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
+                n=sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
                 if(n==-1)  exit(1);
                 TimerON(fd);
                 addrlen=sizeof(addr);
@@ -206,7 +223,7 @@ int main(int argc,char* argv[]){
             else{
                 char buffer[10] = "";
                 sprintf(send,"UNR %s %s\n",uid_str,password);
-                n=sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
+                n=sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
                 if(n==-1)  exit(1);
                 TimerON(fd);
                 addrlen=sizeof(addr);
@@ -237,7 +254,7 @@ int main(int argc,char* argv[]){
             else{
                 char buffer[10] = "";
                 sprintf(send,"OUT %s %s\n",user_logged,logged_pass);
-                n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
+                n = sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
                 if(n == -1) exit(1);
                 TimerON(fd);
                 addrlen = sizeof(addr);
@@ -269,7 +286,7 @@ int main(int argc,char* argv[]){
             }
         }
         else if(strcmp(command,"exit") == 0){
-            freeaddrinfo(res);
+            freeaddrinfo(res_udp);
             close(fd);
             exit(0);
         }
@@ -281,7 +298,7 @@ int main(int argc,char* argv[]){
             char *list; 
             char auxiliar[30] = "";
             
-            n = sendto(fd,"GLS\n",4,0,res->ai_addr,res->ai_addrlen);
+            n = sendto(fd,"GLS\n",4,0,res_udp->ai_addr,res_udp->ai_addrlen);
             if(n == -1) exit(1); 
             addrlen = sizeof(addr);
             TimerON(fd);
@@ -327,8 +344,8 @@ int main(int argc,char* argv[]){
                 char previous[3070] = "";
                 char *list; 
                 char auxiliar[30] = "";
-                sprintf(send,"GLM %s",user_logged);
-                n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
+                sprintf(send,"GLM %s\n",user_logged);
+                n = sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
                 if(n == -1) exit(1); 
                 addrlen = sizeof(addr);
                 TimerON(fd);
@@ -436,7 +453,7 @@ int main(int argc,char* argv[]){
                 }
                 
                 sprintf(send,"GSR %s %s %s\n",user_logged,gid_str,gname);
-                n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
+                n = sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
                 if(n == -1) exit(1);
                 
                 addrlen = sizeof(addr);
@@ -502,7 +519,7 @@ int main(int argc,char* argv[]){
                 }
                 
                 sprintf(send,"GUR %s %s\n",user_logged,gid_str);
-                n = sendto(fd,send,strlen(send),0,res->ai_addr,res->ai_addrlen);
+                n = sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
                 if(n == -1) exit(1);
                 addrlen = sizeof(addr);
                 TimerON(fd);

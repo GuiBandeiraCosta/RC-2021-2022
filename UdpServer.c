@@ -32,7 +32,7 @@ enum {idle,busy} state;
 int maxfd,checker;
 ssize_t n;
 socklen_t addrlen;
-struct addrinfo hints, *res;
+struct addrinfo hints_fd,hints_tcp,*res;
 struct sockaddr_in addr;
 char buffer[128] = "";
 /*end*/
@@ -173,6 +173,7 @@ int InputParse(int argc, char*argv[]){
 }
 
 int main(int argc, char *argv[]){
+    
     InputParse(argc,argv);
     int ret;
     ret=mkdir("USERS",0700);
@@ -181,38 +182,47 @@ int main(int argc, char *argv[]){
     /*Connection*/
     udpfd = socket(AF_INET,SOCK_DGRAM,0) /*UDP*/;
     if(udpfd ==-1) exit(1);
-    tcpfd= socket(AF_INET,SOCK_DGRAM,0) /*TCP*/;
+    tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
     if(tcpfd ==-1) printf("1");
-    memset(&hints,0,sizeof hints);
-    hints.ai_family=AF_INET;
-    hints.ai_socktype=SOCK_DGRAM;
-    hints.ai_flags=AI_PASSIVE;
+    memset(&hints_fd,0,sizeof hints_fd);
+    hints_fd.ai_family=AF_INET;
+    hints_fd.ai_socktype=SOCK_DGRAM;
+    hints_fd.ai_flags=AI_PASSIVE;
+    
+    memset(&hints_tcp,0,sizeof hints_tcp);
+    hints_tcp.ai_family=AF_INET; //IPv4
+    hints_tcp.ai_socktype=SOCK_STREAM; //TCP socket
+    hints_tcp.ai_flags=AI_PASSIVE;
+
     sprintf(dsport, "%d",dsport_err);
-    errcode=getaddrinfo(NULL,dsport,&hints,&res);
+    errcode=getaddrinfo(NULL,dsport,&hints_fd,&res);
     if(errcode != 0) printf("3");
     n= bind(udpfd,res->ai_addr,res->ai_addrlen);
     if(n==-1) printf("4");
     n= bind(tcpfd,res->ai_addr,res->ai_addrlen);
     if(n==-1) printf("Nao consegui dar bind tcpfd\n");
-    if(listen(tcpfd,5) == 1) printf("7");
-        
-    
-    
+    puts("HELP2\n");
+    if(listen(tcpfd,5) == -1) printf("7");
+    puts("HELP3\n");    
     
     while(1){
+        puts("HELP4\n");
         char command[13] = "";
         char buffer3[128] = "";
         FD_ZERO(&rfds);
         FD_SET(udpfd,&rfds);
-        FD_SET(tcpfd,&rfds);maxfd=udpfd;
+        FD_SET(tcpfd,&rfds);maxfd=max(udpfd,tcpfd);
+        puts("HELP5\n");
         
-        
-        if(state == busy){FD_SET(tcpfd,&rfds);maxfd=max(maxfd,tcpfd);}
+        puts("HELP6\n");
         checker=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval *)NULL);
+        puts("HELP7\n");
         if(checker <= 0) printf("6");
+        puts("HELP8\n");
         if(FD_ISSET(udpfd,&rfds)){ /*UDP */
             switch(state){
                 case idle:
+                    printf("IDLE UDP\n");
                     state = busy;
                     addrlen = sizeof(addr);
                     n=recvfrom(udpfd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
@@ -222,22 +232,28 @@ int main(int argc, char *argv[]){
                     state = idle;
                     freeaddrinfo(res);
                 case busy:
+                    printf("IDLE BUSY UDP\n");
                     break;
             }
         }
         if(FD_ISSET(tcpfd,&rfds)){ /*TCP*/
             switch(state){
                 case idle:
+                    printf("IDLE TCP\n");
                     state = busy;
-                    if(newfd = accept(udpfd,(struct sockaddr*)&addr,&addrlen) == 1) exit(1);
-                    n = read(newfd,buffer3,128);
-                    if (n== -1) exit(1);
+                    printf("BOM DIA1\n");
+                    if(newfd = accept(tcpfd,(struct sockaddr*)&addr,&addrlen) == -1) printf("BOM DIA\n");
+                    printf("BOM DIA2\n");
+                    n = read(newfd,buffer3,1);
+                    if (n== -1) printf("BOM DIA 4 \n");
+                    printf("BOM DIA3\n");
                     write(1,"received: ",10);write(1,buffer,n);
                     n = write(newfd,buffer,n);
                     if( n == -1)exit(1);
                     close(newfd);
                     freeaddrinfo(res);
                 case busy:
+                    printf("IDLE BREAK TCP\n");
                     break;
             }
         }
