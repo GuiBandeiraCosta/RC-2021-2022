@@ -32,7 +32,7 @@ enum {idle,busy} state;
 int maxfd,checker;
 ssize_t n;
 socklen_t addrlen;
-struct addrinfo hints_fd,hints_tcp,*res;
+struct addrinfo hints_fd,hints_tcp,*res_udp,*res_tcp;
 struct sockaddr_in addr;
 char buffer[128] = "";
 /*end*/
@@ -182,8 +182,7 @@ int main(int argc, char *argv[]){
     /*Connection*/
     udpfd = socket(AF_INET,SOCK_DGRAM,0) /*UDP*/;
     if(udpfd ==-1) exit(1);
-    tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-    if(tcpfd ==-1) printf("1");
+   
     memset(&hints_fd,0,sizeof hints_fd);
     hints_fd.ai_family=AF_INET;
     hints_fd.ai_socktype=SOCK_DGRAM;
@@ -195,15 +194,21 @@ int main(int argc, char *argv[]){
     hints_tcp.ai_flags=AI_PASSIVE;
 
     sprintf(dsport, "%d",dsport_err);
-    errcode=getaddrinfo(NULL,dsport,&hints_fd,&res);
+    errcode=getaddrinfo(NULL,dsport,&hints_fd,&res_udp);
     if(errcode != 0) printf("3");
-    n= bind(udpfd,res->ai_addr,res->ai_addrlen);
+    errcode=getaddrinfo(NULL,dsport,&hints_tcp,&res_tcp);
+    if(errcode != 0) printf("3");
+    n= bind(udpfd,res_udp->ai_addr,res_udp->ai_addrlen);
     if(n==-1) printf("4");
-    n= bind(tcpfd,res->ai_addr,res->ai_addrlen);
+
+    tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+    if(tcpfd ==-1) printf("1");
+    n= bind(tcpfd,res_udp->ai_addr,res_udp->ai_addrlen);
     if(n==-1) printf("Nao consegui dar bind tcpfd\n");
     puts("HELP2\n");
     if(listen(tcpfd,5) == -1) printf("7");
-    puts("HELP3\n");    
+    puts("HELP3\n"); 
+       
     
     while(1){
         puts("HELP4\n");
@@ -230,7 +235,7 @@ int main(int argc, char *argv[]){
                     printf("isto e o buffer %s\n",buffer);
                     sscanf(buffer,"%s",command);
                     state = idle;
-                    freeaddrinfo(res);
+                    freeaddrinfo(res_udp);
                 case busy:
                     printf("IDLE BUSY UDP\n");
                     break;
@@ -242,16 +247,17 @@ int main(int argc, char *argv[]){
                     printf("IDLE TCP\n");
                     state = busy;
                     printf("BOM DIA1\n");
+                    addrlen = sizeof(addr);
                     if(newfd = accept(tcpfd,(struct sockaddr*)&addr,&addrlen) == -1) printf("BOM DIA\n");
                     printf("BOM DIA2\n");
-                    n = read(newfd,buffer3,1);
+                    n = read(newfd,buffer3,128);
                     if (n== -1) printf("BOM DIA 4 \n");
                     printf("BOM DIA3\n");
                     write(1,"received: ",10);write(1,buffer,n);
                     n = write(newfd,buffer,n);
                     if( n == -1)exit(1);
                     close(newfd);
-                    freeaddrinfo(res);
+                    close(tcpfd);
                 case busy:
                     printf("IDLE BREAK TCP\n");
                     break;
@@ -650,7 +656,7 @@ int main(int argc, char *argv[]){
     }/*END OF WHILE*/
     
     /*endof*/
-    freeaddrinfo(res);
+    freeaddrinfo(res_udp);
     close(udpfd);
 
     printf("DSPORT %d Flag %d\n",dsport_err,flag_v);

@@ -38,6 +38,104 @@ int TimerOFF(int sd){
 }
 
 
+int UlistReader(char buffer[]){
+    
+    char *ptr;
+    char aux[10];
+    ssize_t nbytes,nleft,nwritten,nread;
+    sprintf(aux,"ULS %s\n",gid_selected);
+    ptr=strcpy(buffer,aux);
+    nbytes= strlen(buffer);
+    nleft=nbytes;
+    while(nleft>0){
+        nwritten=write(afd,ptr,nleft);
+        if(nwritten<=0)/*error*/printf("ULIST WRITE FAILED\n");
+        nleft-=nwritten;
+        ptr+=nwritten;
+    }
+    
+    
+    nleft=8; ptr=buffer;
+    while(nleft>0){
+        nread=read(afd,ptr,1);
+        if(nread==-1)/*error*/exit(1);
+        else if(nread==0)break;//closed by peer
+            nleft-=nread;
+            ptr+=nread;
+    }
+
+    if(strcmp(buffer,"RUL NOK\n") == 0){
+        return 0;
+    }
+    else{
+        nleft = 23;
+        while(nleft>0){
+            nread=read(afd,ptr,1);
+            if(ptr[0] == '\n'){
+                return nread;
+            }
+            if (ptr[0] == ' '){
+                nleft-=nread;
+                ptr+=nread;
+                break;
+            }
+            if(nread ==-1)/*error*/exit(1);
+            else if(nread==0)break;//closed by peer
+            nleft-=nread;
+            ptr+=nread;
+            
+        }
+        nleft = 594; /*6(uid with space or \n) times 99 = 594 */
+        while(nleft>0){
+            nread=read(afd,ptr,6);
+            if( nread == 6){
+                if(ptr[5] == '\n'){
+                    nleft-=nread;
+                    ptr+=nread;
+                    break;
+                }
+                if(nread ==-1)/*error*/exit(1);
+                else if(nread==0)break;//closed by peer
+                nleft-=nread;
+                ptr+=nread;
+            } 
+        }
+        
+    }
+
+
+    return 0;
+}
+
+int PostReader(char buffer[],int flag,char text[]){
+    ssize_t nbytes,nleft,nwritten,nread;
+    char send[300];
+    sprintf(send,"PST %s %s %ld %s\n",user_logged,gid_selected,strlen(text),text);
+    printf("SEND %s\n",send);
+    char *ptr;
+    ptr = send;
+    nleft = strlen(send);
+    while(nleft>0){
+        nwritten=write(afd,ptr,nleft);
+        if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
+        exit(1);}
+        nleft-=nwritten;
+        ptr+=nwritten;
+    }
+
+    nleft = 9;ptr = buffer;
+    while(nleft>0){
+        nread=read(afd,ptr,1);
+        printf("%s\n",ptr);
+        if(nread <= 0) printf("FALHEI left\n");
+        if(ptr[0] == '\n'){
+                nleft-=nread;
+                ptr+=nread;
+                break;
+        }
+    }
+
+}
 
 int InputParse(int argc,char* argv[]){
     char *error;
@@ -78,11 +176,11 @@ int main(int argc,char* argv[]){
     InputParse(argc, argv);
     sprintf(dsport, "%d",dsport_err);
     printf(" ID %s  PORT %s\n",dsip,dsport);
-    fd=socket(AF_INET,SOCK_DGRAM,0); //UDP socket
+    
     
     if(fd==-1) exit(1);
     if (afd == -1) exit(1);
-   
+    fd=socket(AF_INET,SOCK_DGRAM,0); //UDP socket
     memset(&hints_fd,0,sizeof hints_fd);
     hints_fd.ai_family=AF_INET; //IPv4
     hints_fd.ai_socktype=SOCK_DGRAM; //UDP socket
@@ -97,26 +195,119 @@ int main(int argc,char* argv[]){
     errcode=getaddrinfo(dsip,dsport,&hints_tcp,&res_tcp);
     if(errcode!=0) /*error*/ exit(1);
     while(1){
-        char input[240] = "";
+        char input[270] = "";
         char command[13] = "";
-        char buffer3[1000] = "";
         fgets(input,240,stdin);
         sscanf(input,"%s",command);
-        if(strcmp(command, "a") == 0){
+        if(strcmp(command, "ulist") == 0 || strcmp(command,"ul")== 0){
+            if(strcmp(user_logged,"") == 0 || strcmp(logged_pass,"") == 0){
+                printf("User not logged in\n");
+            }
+            else if(strcmp(gid_selected,"") == 0){
+                printf("Group not Selected\n");
+            }
+            else{
+                char *list;
+                char buffer[650] = "";
+                afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+                n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+                if(n == -1) printf("Connect failed\n");
+                else{
+                    UlistReader(buffer);
+                    buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
+                    list= strtok(buffer," ");
+                    if(strcmp(list,"ERR") == 0){
+                        printf("ERRor:Unexepected message\n"); 
+                    }
+                    else{  
+                        list= strtok(NULL," ");
+                        if(strcmp(list,"NOK") == 0){
+                            printf("Group %s does not exist\n",gid_selected);
+                        }
+                        else{
+                            list= strtok(NULL," ");
+                            printf("Users subscribed to Group %s with id %s:\n",list,gid_selected);
+                            list= strtok(NULL," ");
+                            while (list != NULL){
+                                printf("User %s\n",list);
+                                list= strtok(NULL," ");
+                                
+                            }
+                        }   
+                    }
+                }
+                close(afd);
+            }
+        }
+        if(strcmp(command, "post") == 0){
+            /*if(strcmp(user_logged,"") == 0 || strcmp(logged_pass,"") == 0){
+                printf("User not logged in\n");
+            }
+            else if(strcmp(gid_selected,"") == 0){
+                printf("Group not Selected\n");
+            }*/
+            if(4 >5){}
+            else{
+                char text[241] = "";
+                char Fname[25] = "";
+                char ptr[500] = "";
+                char buffer[3000] ="";
+                size_t bytes_read;
+                FILE *f;
+                long fsize;
+                sscanf(input,"%s \"%[^\"]\" %s",command,text,Fname);
+                if(strlen(text) > 240){
+                    printf("Text can have a total of 240 characters\n");
+                }
+                else if(strlen(Fname) > 25){
+                    printf("File name can have a total of 25 characters\n");
+                }
+                else if(strcmp(Fname,"") == 0){
+                    afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+                    n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+                    if(n == -1) printf("Connect failed\n");
+                    PostReader(buffer,1,text);
+                    printf("BUFFER %s",buffer);
+                    close(afd);
+                }
+                else if(access( Fname, F_OK ) != 0){
+                    printf("File does not exit\n");
+                }
+               
+                else{
+                    f = fopen(Fname,"rb");
+                    printf("fsize %ld\n",fsize);
+                    while (bytes_read =fread(ptr,1,1,f)> 0) {
+                        strcat(buffer,ptr);
+                    }
+                    printf("BUFFER %s\n  NUMBER %ld \n",buffer,strlen(buffer));
+                    fseek(f, 0L, SEEK_END);
+                    fsize = ftell(f);
+                    rewind(f);
+                    printf("fsize %ld\n",fsize);
+                    fclose(f);
+                    f = fopen("b.jpg","wb");
+                    fwrite(buffer,1,strlen(buffer),f);
+                    fclose(f);                    
+                }
+            }
+
+        }
+
+        else if(strcmp(command,"a")== 0){
+            char buffer[20] = "";
             afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-            printf("OLA \n");
             n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
-            if(n == -1) printf("help\n");
-            n = write (afd,"ULS 10\n",7);
-            printf("OLA2\n");
-            if ( n == -1) printf("HELP2\n");
-            n = read(afd,buffer3,1000);
-            n = read(afd,buffer3,1000);
-            printf("OLA3\n");
-            if ( n == -1) printf("HELP3\n");
-            write(1,"Echo : ",6); write(1,buffer3,n);
-            close(afd);
-            
+            if(n == -1) printf("Connect failed\n");
+            n = write(afd,"Hello!\n",7);
+            printf("CHEGUEI\n");
+            if(n == -1) printf("WRITE failed\n");
+            printf("CHEGUEI2\n");
+
+            n = read(afd,buffer,20);
+            printf("CHEGUEI3\n");
+            if(n == -1) printf("Read failed\n");
+            printf("BUFFER %s\n",buffer);
         }
         else if(strcmp(command,"reg")== 0){
             char send[20] = "";
@@ -124,8 +315,6 @@ int main(int argc,char* argv[]){
             char password[9] = "";
             
             sscanf(input,"%s %s %s",command,uid_str,password);
-            
-            
             if(strlen(uid_str)!=5){ 
                 printf("Invalid UID: Must be 5 digits long\n");
                
@@ -145,26 +334,27 @@ int main(int argc,char* argv[]){
                 n=recvfrom(fd,buffer,10,0,(struct sockaddr*)&addr,&addrlen);
                 if(n==-1)  printf("Server error try again please\n");
                 else{
-                TimerOFF(fd);
-            
-                buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
-                if(strcmp(buffer,"RRG OK") == 0){ 
-                    printf("User successfully registered\n");
-                }
-                else if(strcmp(buffer,"RRG DUP") == 0){
-                    printf("User already registered\n");
-                }
-                else if(strcmp(buffer,"RRG NOK") == 0){
-                    printf("Registration failed");
-                }
-                else if(strcmp(buffer,"ERR") == 0){
-                    printf("ERROR:unexpected protocol message\n");
-                }
-                else{
-                    printf("Something went wrong,try again\n");
-                }
-            }      
-        }
+                    TimerOFF(fd);
+                
+                    buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
+                    if(strcmp(buffer,"RRG OK") == 0){ 
+                        printf("User successfully registered\n");
+                    }
+                    else if(strcmp(buffer,"RRG DUP") == 0){
+                        printf("User already registered\n");
+                    }
+                    else if(strcmp(buffer,"RRG NOK") == 0){
+                        printf("Registration failed");
+                    }
+                    else if(strcmp(buffer,"ERR") == 0){
+                        printf("ERROR:unexpected protocol message\n");
+                    }
+                    else{
+                        printf("Something went wrong,try again\n");
+                    }
+                }      
+            }
+            close(fd);
         }
         else if(strcmp(command,"login") == 0){
             char send[20] = "";
@@ -398,8 +588,8 @@ int main(int argc,char* argv[]){
             if(strcmp(user_logged,"") == 0){
                 printf("You are not logged in!\n"); 
             }
-            else if(gid < 0 || gid > 99){
-                printf("GID must be between 0 and 99\n");
+            else if(gid <= 0 || gid > 99){
+                printf("GID must be between 1 and 99\n");
             }
             
             else{
