@@ -177,10 +177,10 @@ int main(int argc,char* argv[]){
     sprintf(dsport, "%d",dsport_err);
     printf(" ID %s  PORT %s\n",dsip,dsport);
     
-    
+    fd= socket(AF_INET,SOCK_DGRAM,0);
     if(fd==-1) exit(1);
     if (afd == -1) exit(1);
-    fd=socket(AF_INET,SOCK_DGRAM,0); //UDP socket
+    
     memset(&hints_fd,0,sizeof hints_fd);
     hints_fd.ai_family=AF_INET; //IPv4
     hints_fd.ai_socktype=SOCK_DGRAM; //UDP socket
@@ -214,6 +214,7 @@ int main(int argc,char* argv[]){
                 if(n == -1) printf("Connect failed\n");
                 else{
                     UlistReader(buffer);
+                    printf("BUFFER |%s|\n",buffer);
                     buffer[strcspn(buffer, "\n")] = 0; /*Removes \n from buffer */
                     list= strtok(buffer," ");
                     if(strcmp(list,"ERR") == 0){
@@ -228,6 +229,9 @@ int main(int argc,char* argv[]){
                             list= strtok(NULL," ");
                             printf("Users subscribed to Group %s with id %s:\n",list,gid_selected);
                             list= strtok(NULL," ");
+                            if(list == NULL){
+                                printf("None\n");
+                            }
                             while (list != NULL){
                                 printf("User %s\n",list);
                                 list= strtok(NULL," ");
@@ -253,8 +257,6 @@ int main(int argc,char* argv[]){
                 char ptr[500] = "";
                 char buffer[3000] ="";
                 size_t bytes_read;
-                FILE *f;
-                long fsize;
                 sscanf(input,"%s \"%[^\"]\" %s",command,text,Fname);
                 if(strlen(text) > 240){
                     printf("Text can have a total of 240 characters\n");
@@ -275,18 +277,20 @@ int main(int argc,char* argv[]){
                 }
                
                 else{
+                    FILE *f;
+                    long fsize;
                     f = fopen(Fname,"rb");
                     printf("fsize %ld\n",fsize);
                     while (bytes_read =fread(ptr,1,1,f)> 0) {
-                        strcat(buffer,ptr);
+                        strcat(buffer,ptr); /*Por cada byte que le mete no buffer*/
                     }
                     printf("BUFFER %s\n  NUMBER %ld \n",buffer,strlen(buffer));
                     fseek(f, 0L, SEEK_END);
-                    fsize = ftell(f);
+                    fsize = ftell(f); /*Tamanho do Ficheiro */
                     rewind(f);
-                    printf("fsize %ld\n",fsize);
+                    printf("fsize %ld\n",fsize); 
                     fclose(f);
-                    f = fopen("b.jpg","wb");
+                    f = fopen("b.jpg","wb"); /*Criação de um novo ficheiro com o nome b.jpg */
                     fwrite(buffer,1,strlen(buffer),f);
                     fclose(f);                    
                 }
@@ -296,18 +300,20 @@ int main(int argc,char* argv[]){
 
         else if(strcmp(command,"a")== 0){
             char buffer[20] = "";
+            char wait[20];
             afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
             n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
             if(n == -1) printf("Connect failed\n");
-            n = write(afd,"Hello!\n",7);
+            n = write(afd,"ULS 09\n",7);
             printf("CHEGUEI\n");
             if(n == -1) printf("WRITE failed\n");
             printf("CHEGUEI2\n");
 
-            n = read(afd,buffer,20);
+            n = read(afd,buffer,10);
             printf("CHEGUEI3\n");
             if(n == -1) printf("Read failed\n");
             printf("BUFFER %s\n",buffer);
+            close(afd);
         }
         else if(strcmp(command,"reg")== 0){
             char send[20] = "";
@@ -328,7 +334,7 @@ int main(int argc,char* argv[]){
                 char buffer[10] = "";
                 sprintf(send,"REG %s %s\n",uid_str,password);
                 n=sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
-                if(n==-1)  exit(1);
+                if(n==-1)  printf("Failed Send\n");
                 TimerON(fd);
                 addrlen=sizeof(addr);
                 n=recvfrom(fd,buffer,10,0,(struct sockaddr*)&addr,&addrlen);
@@ -354,7 +360,7 @@ int main(int argc,char* argv[]){
                     }
                 }      
             }
-            close(fd);
+            
         }
         else if(strcmp(command,"login") == 0){
             char send[20] = "";
@@ -414,7 +420,7 @@ int main(int argc,char* argv[]){
                 char buffer[10] = "";
                 sprintf(send,"UNR %s %s\n",uid_str,password);
                 n=sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
-                if(n==-1)  exit(1);
+                if(n==-1)  printf("Couldnt Send\n");
                 TimerON(fd);
                 addrlen=sizeof(addr);
                 n=recvfrom(fd,buffer,10,0,(struct sockaddr*)&addr,&addrlen);

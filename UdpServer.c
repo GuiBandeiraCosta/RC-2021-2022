@@ -25,6 +25,8 @@ typedef struct GROUPLIST{
     char group_message[99][5];
 }GROUPLIST;
 
+
+
 /*Connection*/
 int udpfd,tcpfd,newfd,errcode = 0;
 fd_set rfds;
@@ -34,9 +36,49 @@ ssize_t n;
 socklen_t addrlen;
 struct addrinfo hints_fd,hints_tcp,*res_udp,*res_tcp;
 struct sockaddr_in addr;
-char buffer[128] = "";
-/*end*/
 
+/*end*/
+int UsersinGroup(char buffer[],char gid[]){
+    DIR *d;
+    struct dirent *dir;
+    FILE *fp;
+    char dirpath[11];
+    char namepath[25];
+    char group_name[25];
+    char namefile[13];
+    sprintf(dirpath,"GROUPS/%s",gid);
+    
+    d = opendir(dirpath);
+    printf("Dir path %s\n",dirpath);
+    if(d == NULL){
+        strcpy(buffer,"RUL NOK\n");
+        return 0;
+    }
+    
+    else{
+        sprintf(namefile,"%s_name.txt",gid);
+        sprintf(namepath,"%s/%s",dirpath,namefile);
+        printf("name %s\n",namepath);
+        
+        fp = fopen(namepath,"r");
+        fscanf(fp,"%24s",group_name);
+        fclose(fp);
+        sprintf(buffer,"RUL OK %s",group_name);
+        while ((dir = readdir(d)) != NULL){
+            if(strlen(dir->d_name)>4 && strcmp(dir->d_name,namefile) != 0){ /*Garanties that only uid.txt files are stored in Buffer*/
+                    strcat(buffer," ");
+                    strcat(buffer,dir->d_name);
+                    
+            }
+        }
+        strcat(buffer,"\n");
+        printf("BUFFER %s",buffer);
+        
+        closedir(d);
+    }
+    return 0;
+    
+}
 
 int ListGroupsDir(GROUPLIST *list){
     DIR *d;
@@ -139,131 +181,10 @@ int SearchUID(char uid[]){
     }
 }
 
-
-
-
-int InputParse(int argc, char*argv[]){
-    char *error;
-    if(argc == 1){
-        dsport_err = PORT_DEF;
-    }
-    else if((argc == 2) &&  (strcmp(argv[1],"-v") == 0)){
-        flag_v = 1;
-        dsport_err = PORT_DEF;
-    }
-    else if((argc == 3) && (strcmp(argv[1],"-p") == 0)){
-        dsport_err = strtol(argv[2],&error,10);
-        if((dsport_err == 0) && (strlen(error) != 0)) {
-            printf("Invalid PORT\n"); 
-            exit(1);
-        }
-    }
-    else if((argc == 4) && (strcmp(argv[1],"-p") == 0) && (strcmp(argv[3],"-v") == 0)){
-        dsport_err = strtol(argv[2],&error,10);
-        if((dsport_err == 0) && (strlen(error) != 0)) {
-            printf("Invalid PORT\n"); 
-            exit(1);
-        }
-        flag_v = 1;
-    }
-    else{
-        printf("Wrong Format\n");
-        exit(1);
-    }
-}
-
-int main(int argc, char *argv[]){
-    
-    InputParse(argc,argv);
-    int ret;
-    ret=mkdir("USERS",0700);
-    ret=mkdir("GROUPS",0700);
-    
-    /*Connection*/
-    udpfd = socket(AF_INET,SOCK_DGRAM,0) /*UDP*/;
-    if(udpfd ==-1) exit(1);
-   
-    memset(&hints_fd,0,sizeof hints_fd);
-    hints_fd.ai_family=AF_INET;
-    hints_fd.ai_socktype=SOCK_DGRAM;
-    hints_fd.ai_flags=AI_PASSIVE;
-    
-    memset(&hints_tcp,0,sizeof hints_tcp);
-    hints_tcp.ai_family=AF_INET; //IPv4
-    hints_tcp.ai_socktype=SOCK_STREAM; //TCP socket
-    hints_tcp.ai_flags=AI_PASSIVE;
-
-    sprintf(dsport, "%d",dsport_err);
-    errcode=getaddrinfo(NULL,dsport,&hints_fd,&res_udp);
-    if(errcode != 0) printf("3");
-    errcode=getaddrinfo(NULL,dsport,&hints_tcp,&res_tcp);
-    if(errcode != 0) printf("3");
-    n= bind(udpfd,res_udp->ai_addr,res_udp->ai_addrlen);
-    if(n==-1) printf("4");
-
-    tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-    if(tcpfd ==-1) printf("1");
-    n= bind(tcpfd,res_udp->ai_addr,res_udp->ai_addrlen);
-    if(n==-1) printf("Nao consegui dar bind tcpfd\n");
-    puts("HELP2\n");
-    if(listen(tcpfd,5) == -1) printf("7");
-    puts("HELP3\n"); 
-       
-    
-    while(1){
-        puts("HELP4\n");
-        char command[13] = "";
-        char buffer3[128] = "";
-        FD_ZERO(&rfds);
-        FD_SET(udpfd,&rfds);
-        FD_SET(tcpfd,&rfds);maxfd=max(udpfd,tcpfd);
-        puts("HELP5\n");
-        
-        puts("HELP6\n");
-        checker=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval *)NULL);
-        puts("HELP7\n");
-        if(checker <= 0) printf("6");
-        puts("HELP8\n");
-        if(FD_ISSET(udpfd,&rfds)){ /*UDP */
-            switch(state){
-                case idle:
-                    printf("IDLE UDP\n");
-                    state = busy;
-                    addrlen = sizeof(addr);
-                    n=recvfrom(udpfd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
-                    if(n==-1) exit(1);
-                    printf("isto e o buffer %s\n",buffer);
-                    sscanf(buffer,"%s",command);
-                    state = idle;
-                    freeaddrinfo(res_udp);
-                case busy:
-                    printf("IDLE BUSY UDP\n");
-                    break;
-            }
-        }
-        if(FD_ISSET(tcpfd,&rfds)){ /*TCP*/
-            switch(state){
-                case idle:
-                    printf("IDLE TCP\n");
-                    state = busy;
-                    printf("BOM DIA1\n");
-                    addrlen = sizeof(addr);
-                    if(newfd = accept(tcpfd,(struct sockaddr*)&addr,&addrlen) == -1) printf("BOM DIA\n");
-                    printf("BOM DIA2\n");
-                    n = read(newfd,buffer3,128);
-                    if (n== -1) printf("BOM DIA 4 \n");
-                    printf("BOM DIA3\n");
-                    write(1,"received: ",10);write(1,buffer,n);
-                    n = write(newfd,buffer,n);
-                    if( n == -1)exit(1);
-                    close(newfd);
-                    close(tcpfd);
-                case busy:
-                    printf("IDLE BREAK TCP\n");
-                    break;
-            }
-        }
-        /*REG*/
+int UdpCommands(char buffer[]){
+    char command[13] = "";
+    sscanf(buffer,"%s",command);
+    /*REG*/
         if(strcmp(command,"REG")== 0){
             
             char uid_str[6] = "";
@@ -616,51 +537,173 @@ int main(int argc, char *argv[]){
                     }
                 }
         }
-        /*END OF ALL UDP COMMANDS */
+        return 0;
+    /*END OF ALL UDP COMMANDS */
+}
+
+int ulist(){
+    char buffer[530] = "";
+    char gid[4] = "";
+    char *ptr;
+    ssize_t nbytes,nleft,nwritten,nread;
+    ptr = gid;
+    nleft= 2;
+    while(nleft > 0){
+        nread=read(newfd,ptr,1);
+        if(nread==-1)/*error*/exit(1);
+        else if(nread==0)break;//closed by peer
+        nleft-=nread;
+        ptr+=nread;
+    }
+    printf("GID %s\n",gid);
+    UsersinGroup(buffer,gid);
+    nleft = strlen(buffer);
+    printf("BUFFER %s lenght %ld\n",buffer,strlen(buffer));
+    ptr = buffer;
+    while(nleft > 0){
+        nread=write(newfd,ptr,nleft);
+        printf("ptr %s\n,",ptr);
+        if(nread==-1)/*error*/exit(1);
+        else if(nread==0)break;//closed by peer
+        nleft-=nread;
+        ptr+=nread;
+    }
+    close(newfd);
+}
 
 
+int TcpCommands(){
+    char command[4] = "";
+    char *ptr;
+    ssize_t nbytes,nleft,nwritten,nread;
+    ptr = command;
+    nleft= 4; 
+    while(nleft > 0){ /* Le o primeiro comando e o espaço a seguir*/
+        nread=read(newfd,ptr,1);
+        if(nread==-1)/*error*/exit(1);
+        else if(nread==0)break;//closed by peer
+        nleft-=nread;
+        ptr+=nread;
+    }
+    printf("Command %s\n",command);
+    if(strcmp(command,"ULS ") ==0 ){
+        ulist();
+    }
+    /*if((n=read(newfd,buffer2,7))!=0){   
+                    printf("Entrei READ\n");
+                    printf("%s,buffer\n",buffer2);
+                    if(n==-1)printf("Failed Read\n");
+                    if((n=write(newfd,buffer2,7))<=0)printf("failed  write\n");
+                    close(newfd);
+    }
+    else{close(newfd);printf("N Read = 0");} */
 
+    
+}
 
+int InputParse(int argc, char*argv[]){
+    char *error;
+    if(argc == 1){
+        dsport_err = PORT_DEF;
+    }
+    else if((argc == 2) &&  (strcmp(argv[1],"-v") == 0)){
+        flag_v = 1;
+        dsport_err = PORT_DEF;
+    }
+    else if((argc == 3) && (strcmp(argv[1],"-p") == 0)){
+        dsport_err = strtol(argv[2],&error,10);
+        if((dsport_err == 0) && (strlen(error) != 0)) {
+            printf("Invalid PORT\n"); 
+            exit(1);
+        }
+    }
+    else if((argc == 4) && (strcmp(argv[1],"-p") == 0) && (strcmp(argv[3],"-v") == 0)){
+        dsport_err = strtol(argv[2],&error,10);
+        if((dsport_err == 0) && (strlen(error) != 0)) {
+            printf("Invalid PORT\n"); 
+            exit(1);
+        }
+        flag_v = 1;
+    }
+    else{
+        printf("Wrong Format\n");
+        exit(1);
+    }
+}
 
+int main(int argc, char *argv[]){
+    InputParse(argc,argv);
+    /*Connection*/
+    memset(&hints_fd,0,sizeof hints_fd);
+    hints_fd.ai_family=AF_INET;
+    hints_fd.ai_socktype=SOCK_DGRAM;
+    hints_fd.ai_flags=AI_PASSIVE;
+    
+    memset(&hints_tcp,0,sizeof hints_tcp);
+    hints_tcp.ai_family=AF_INET; //IPv4
+    hints_tcp.ai_socktype=SOCK_STREAM; //TCP socket
+    hints_tcp.ai_flags=AI_PASSIVE;
 
+    sprintf(dsport, "%d",dsport_err);
+    errcode=getaddrinfo(NULL,dsport,&hints_fd,&res_udp);
+    if(errcode != 0) printf("3");
+    errcode=getaddrinfo(NULL,dsport,&hints_tcp,&res_tcp);
+    if(errcode != 0) printf("3");
+    
+    udpfd = socket(AF_INET,SOCK_DGRAM,0) /*UDP*/;
+    if(udpfd ==-1) printf("Failed Udp Socket\n");
+    n= bind(udpfd,res_udp->ai_addr,res_udp->ai_addrlen);
+    if(n==-1) printf("Nao consegui dar bind udpfd\n");
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+    if(tcpfd ==-1) printf("Failed Tcp socket");
+    n= bind(tcpfd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+    if(n==-1) printf("Nao consegui dar bind tcpfd\n");
+    puts("After Second Bind\n");
+    if(listen(tcpfd,5) == -1) printf("7");
+    puts("After Listen\n"); 
+     
+    int flag = 0;
+    while(1){
+        puts("Entrei while\n");
+        FD_ZERO(&rfds); 
+        FD_SET(udpfd,&rfds);
+        FD_SET(tcpfd,&rfds);
+        maxfd=max(udpfd,tcpfd);
+        printf("MAXFD,%d\n",maxfd);
+        checker=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval *)NULL);
+        if(checker <= 0) printf("Checker Failed\n");
+        printf("CHECKER %d\n",checker);
+        if(FD_ISSET(udpfd,&rfds)){ /*UDP */
+            if (flag == 0){
+                flag = 1;
+                char buffer[128] = "";
+                printf("IDLE UDP\n");
+                addrlen = sizeof(addr);
+                n=recvfrom(udpfd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
+                if(n==-1) exit(1);
+                printf("isto e o buffer %s\n",buffer);
+                UdpCommands(buffer);
+                flag = 0;
+            }
+            else{
+                printf("Falhei\n");
+            }
+        }
+        if(FD_ISSET(tcpfd,&rfds)){ /*TCP*/
+           if(flag == 0){
+                flag = 1; /* User has to wait before doing other thins */
+                addrlen=sizeof(addr);
+                if((newfd=accept(tcpfd,(struct sockaddr*)&addr,&addrlen))==-1)/*error*/printf("Failed Accept\n");
+                TcpCommands();
+                
+            flag = 0;
+           }
+        }
     }/*END OF WHILE*/
-    
     /*endof*/
-    freeaddrinfo(res_udp);
+    /*freeaddrinfo(res_udp);
     close(udpfd);
-
-    printf("DSPORT %d Flag %d\n",dsport_err,flag_v);
-    
+    printf("DSPORT %d Flag %d\n",dsport_err,flag_v);*/
     return 0;
-    
 }
