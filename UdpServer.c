@@ -66,9 +66,10 @@ int UsersinGroup(char buffer[],char gid[]){
         sprintf(buffer,"RUL OK %s",group_name);
         while ((dir = readdir(d)) != NULL){
             if(strlen(dir->d_name)>4 && strcmp(dir->d_name,namefile) != 0){ /*Garanties that only uid.txt files are stored in Buffer*/
+                    char name[6];
                     strcat(buffer," ");
-                    strcat(buffer,dir->d_name);
-                    
+                    sprintf(name,"%.5s",dir->d_name);
+                    strcat(buffer,name);    
             }
         }
         strcat(buffer,"\n");
@@ -96,7 +97,7 @@ int ListGroupsDir(GROUPLIST *list){
                 continue;
             strcpy(list->group_message[i],"0000");
             strcpy(list->group_no[i], dir->d_name);
-            sprintf(GIDname,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
+            sprintf(GIDname,"GROUPS/%.2s/%.2s_name.txt",dir->d_name,dir->d_name);
             fp=fopen(GIDname,"r");
             if(fp)
             {
