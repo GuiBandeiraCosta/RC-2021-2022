@@ -209,6 +209,7 @@ int UdpCommands(char buffer[]){
                 }
                 else{
                     n = sendto(udpfd,"RRG OK\n",n,0,(struct sockaddr*)&addr,addrlen);
+                    
                     if(n==-1) exit(1);
                     n_clients += 1;
                     printf("Fiz isto3\n");
@@ -452,7 +453,7 @@ int UdpCommands(char buffer[]){
                     char send[20] = "";
                     char n_groups_str[3] = "";
                     int ret;
-                   
+                    char msg_dir[16] = " ";
                     int name_exists = -1;
                     GROUPLIST *list = malloc(sizeof(GROUPLIST));
                     ListGroupsDir(list);
@@ -476,6 +477,8 @@ int UdpCommands(char buffer[]){
                         }
                         sprintf(group_gid_dir,"GROUPS/%s",n_groups_str);
                         ret=mkdir(group_gid_dir,0700);
+                        sprintf(msg_dir,"%s/MSG",group_gid_dir);                         
+                        ret = mkdir(msg_dir,0700);
                         sprintf(group_namef,"%s/%s_name.txt",group_gid_dir,n_groups_str);
                         f = fopen(group_namef,"w");
                         fputs(gname,f);
@@ -543,7 +546,7 @@ int UdpCommands(char buffer[]){
 }
 
 int ulist(){
-    char buffer[530] = "";
+    char buffer[630] = "";
     char gid[4] = "";
     char *ptr;
     ssize_t nbytes,nleft,nwritten,nread;
@@ -572,9 +575,8 @@ int ulist(){
     close(newfd);
 }
 
-
 int TcpCommands(){
-    char command[4] = "";
+    char command[5] = "";
     char *ptr;
     ssize_t nbytes,nleft,nwritten,nread;
     ptr = command;
@@ -586,20 +588,9 @@ int TcpCommands(){
         nleft-=nread;
         ptr+=nread;
     }
-    printf("Command %s\n",command);
     if(strcmp(command,"ULS ") ==0 ){
         ulist();
     }
-    /*if((n=read(newfd,buffer2,7))!=0){   
-                    printf("Entrei READ\n");
-                    printf("%s,buffer\n",buffer2);
-                    if(n==-1)printf("Failed Read\n");
-                    if((n=write(newfd,buffer2,7))<=0)printf("failed  write\n");
-                    close(newfd);
-    }
-    else{close(newfd);printf("N Read = 0");} */
-
-    
 }
 
 int InputParse(int argc, char*argv[]){
@@ -647,7 +638,7 @@ int main(int argc, char *argv[]){
 
     sprintf(dsport, "%d",dsport_err);
     errcode=getaddrinfo(NULL,dsport,&hints_fd,&res_udp);
-    if(errcode != 0) printf("3");
+    if(errcode != 0) printf("Could");
     errcode=getaddrinfo(NULL,dsport,&hints_tcp,&res_tcp);
     if(errcode != 0) printf("3");
     

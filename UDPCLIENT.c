@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #define PORT_DEF 58011
 
 char dsip[30] = "";
@@ -135,18 +136,13 @@ int PostReader(char buffer[],char text[]){
 
 }
 
-int PostFReader(char buffer[],char text[],char Fname[]){
+int PostFReader(char buffer[],char text[],char Fname[],long fsize){
     ssize_t nbytes,nleft,nwritten,nread,dread = 0;
     char send[300];
     char data[512];
-    
-    long fsize;
     char *ptr;
     FILE *f;
     f = fopen(Fname,"rb");
-    fseek(f,0,SEEK_END);
-    fsize = ftell(f);
-    rewind(f);
     sprintf(send,"PST %s %s %ld %s %s %ld ",user_logged,gid_selected,strlen(text),text,Fname,fsize);
     ptr = send;
     nleft = strlen(send);
@@ -314,41 +310,49 @@ int main(int argc,char* argv[]){
                 int flag = 0;
                 char text[241] = "";
                 char Fname[25] = "";
-                char ptr[500] = "";
-                char buffer[3000] ="";
+                char buffer[10] ="";
+                struct stat st; 
+                long fsize;
                 size_t bytes_read;
                 sscanf(input,"%s \"%[^\"]\" %s",command,text,Fname);
                 if(strlen(text) > 240){
                     printf("Text can have a total of 240 characters\n");
                     
                 }
-                else if(strlen(Fname) > 25){
-                    printf("File name can have a total of 25 characters\n");
+                else if(strlen(Fname) > 24){
+                    printf("File name can have a total of 24 characters\n");
                     
                 }
                 else if(strcmp(Fname,"") == 0){
                     afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
                     n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
                     if(n == -1) printf("Connect failed\n");
-                    printf("afd %d\n",afd);
                     PostReader(buffer,text);
                     buffer[strcspn(buffer, "\n")] = 0;
                     close(afd);
                     flag = 1;
-                    
                 }
                 else if(access( Fname, F_OK ) != 0){
                     printf("File does not exit\n");
                     
                 }
-               
+                
+                    
                 else{
-                    afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-                    n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
-                    PostFReader(buffer,text,Fname); 
-                    buffer[strcspn(buffer, "\n")] = 0;
-                    close(afd);
-                    flag = 1;
+                    if (stat(Fname, &st) == 0){
+                        fsize =  st.st_size;
+                    }
+                    if(fsize > 999999999){
+                        printf("File Size to big must be under 10 digits\n");
+                    }
+                    else{
+                        afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+                        n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+                        PostFReader(buffer,text,Fname,fsize); 
+                        buffer[strcspn(buffer, "\n")] = 0;
+                        close(afd);
+                        flag = 1;
+                    }
                 }
                 if(flag == 1){ /* Only prints if it passes initial conditions */
                     char res[5];
