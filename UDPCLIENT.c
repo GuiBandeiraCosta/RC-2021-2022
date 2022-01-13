@@ -38,6 +38,7 @@ int TimerOFF(int sd){
 }
 
 
+
 int UlistReader(char buffer[]){
     
     char *ptr;
@@ -60,10 +61,9 @@ int UlistReader(char buffer[]){
         nread=read(afd,ptr,1);
         if(nread==-1)/*error*/exit(1);
         else if(nread==0)break;//closed by peer
-            nleft-=nread;
-            ptr+=nread;
+        nleft-=nread;
+        ptr+=nread;
     }
-
     if(strcmp(buffer,"RUL NOK\n") == 0){
         return 0;
     }
@@ -102,16 +102,13 @@ int UlistReader(char buffer[]){
         }
         
     }
-
-
     return 0;
 }
 
-int PostReader(char buffer[],int flag,char text[]){
+int PostReader(char buffer[],char text[]){
     ssize_t nbytes,nleft,nwritten,nread;
     char send[300];
     sprintf(send,"PST %s %s %ld %s\n",user_logged,gid_selected,strlen(text),text);
-    printf("SEND %s\n",send);
     char *ptr;
     ptr = send;
     nleft = strlen(send);
@@ -126,15 +123,78 @@ int PostReader(char buffer[],int flag,char text[]){
     nleft = 9;ptr = buffer;
     while(nleft>0){
         nread=read(afd,ptr,1);
-        printf("%s\n",ptr);
         if(nread <= 0) printf("FALHEI left\n");
         if(ptr[0] == '\n'){
                 nleft-=nread;
                 ptr+=nread;
                 break;
         }
+        nleft-=nread;
+        ptr+=nread;
     }
 
+}
+
+int PostFReader(char buffer[],char text[],char Fname[]){
+    ssize_t nbytes,nleft,nwritten,nread,dread = 0;
+    char send[300];
+    char data[512];
+    
+    long fsize;
+    char *ptr;
+    FILE *f;
+    f = fopen(Fname,"rb");
+    fseek(f,0,SEEK_END);
+    fsize = ftell(f);
+    rewind(f);
+    sprintf(send,"PST %s %s %ld %s %s %ld ",user_logged,gid_selected,strlen(text),text,Fname,fsize);
+    ptr = send;
+    nleft = strlen(send);
+    // sends first send //
+    while(nleft>0){
+        nwritten=write(afd,ptr,nleft);
+        if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
+        exit(1);}
+        nleft-=nwritten;
+        ptr+=nwritten;
+    }
+    //send file packets//
+    while(dread < fsize){
+        strcpy(data,"");
+        dread += fread(data,sizeof(unsigned char),512,f);
+        nleft = 512;
+        ptr = data;
+        while(nleft>0){
+        nwritten=write(afd,ptr,nleft);
+        if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
+        exit(1);}
+        nleft-=nwritten;
+        ptr+=nwritten;
+        }   
+    }
+    //sends last \n //
+
+        nleft = 1;
+        while(nleft>0){
+        nwritten=write(afd,"\n",nleft);
+        if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
+        exit(1);}
+        nleft-=nwritten;
+        }   
+
+    //get server response// 
+    nleft = 9;ptr = buffer;
+    while(nleft>0){
+        nread=read(afd,ptr,1);
+        if(nread <= 0) printf("FALHEI left\n");
+        if(ptr[0] == '\n'){
+                nleft-=nread;
+                ptr+=nread;
+                break;
+        }
+        nleft-=nread;
+        ptr+=nread;
+    }
 }
 
 int InputParse(int argc,char* argv[]){
@@ -244,14 +304,14 @@ int main(int argc,char* argv[]){
             }
         }
         if(strcmp(command, "post") == 0){
-            /*if(strcmp(user_logged,"") == 0 || strcmp(logged_pass,"") == 0){
+            if(strcmp(user_logged,"") == 0 || strcmp(logged_pass,"") == 0){
                 printf("User not logged in\n");
             }
             else if(strcmp(gid_selected,"") == 0){
                 printf("Group not Selected\n");
-            }*/
-            if(4 >5){}
+            }
             else{
+                int flag = 0;
                 char text[241] = "";
                 char Fname[25] = "";
                 char ptr[500] = "";
@@ -260,40 +320,51 @@ int main(int argc,char* argv[]){
                 sscanf(input,"%s \"%[^\"]\" %s",command,text,Fname);
                 if(strlen(text) > 240){
                     printf("Text can have a total of 240 characters\n");
+                    
                 }
                 else if(strlen(Fname) > 25){
                     printf("File name can have a total of 25 characters\n");
+                    
                 }
                 else if(strcmp(Fname,"") == 0){
                     afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
                     n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
                     if(n == -1) printf("Connect failed\n");
-                    PostReader(buffer,1,text);
-                    printf("BUFFER %s",buffer);
+                    printf("afd %d\n",afd);
+                    PostReader(buffer,text);
+                    buffer[strcspn(buffer, "\n")] = 0;
                     close(afd);
+                    flag = 1;
+                    
                 }
                 else if(access( Fname, F_OK ) != 0){
                     printf("File does not exit\n");
+                    
                 }
                
                 else{
-                    FILE *f;
-                    long fsize;
-                    f = fopen(Fname,"rb");
-                    printf("fsize %ld\n",fsize);
-                    while (bytes_read =fread(ptr,1,1,f)> 0) {
-                        strcat(buffer,ptr); /*Por cada byte que le mete no buffer*/
-                    }
-                    printf("BUFFER %s\n  NUMBER %ld \n",buffer,strlen(buffer));
-                    fseek(f, 0L, SEEK_END);
-                    fsize = ftell(f); /*Tamanho do Ficheiro */
-                    rewind(f);
-                    printf("fsize %ld\n",fsize); 
-                    fclose(f);
-                    f = fopen("b.jpg","wb"); /*Criação de um novo ficheiro com o nome b.jpg */
-                    fwrite(buffer,1,strlen(buffer),f);
-                    fclose(f);                    
+                    afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+                    n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+                    PostFReader(buffer,text,Fname); 
+                    buffer[strcspn(buffer, "\n")] = 0;
+                    close(afd);
+                    flag = 1;
                 }
+                if(flag == 1){ /* Only prints if it passes initial conditions */
+                    char res[5];
+                    sscanf(buffer,"%3s %s",command,res);
+                    if(strcmp(buffer,"ERR") == 0){
+                        printf("ERROR:unexpected protocol message\n");
+
+                    }
+                    else if(strcmp(buffer,"RPT NOK") == 0){
+                        printf("Command Post was not successful\n");
+                    }
+                    else{
+                        printf("User %s posted to Group %s message with ID %s\n",user_logged,gid_selected,res);
+                    }
+                }
+
             }
 
         }
@@ -332,7 +403,7 @@ int main(int argc,char* argv[]){
             }
             else{
                 char buffer[10] = "";
-                sprintf(send,"REG %s %s\n",uid_str,password);
+                sprintf(send,"REG %.5s %.8s\n",uid_str,password);
                 n=sendto(fd,send,strlen(send),0,res_udp->ai_addr,res_udp->ai_addrlen);
                 if(n==-1)  printf("Failed Send\n");
                 TimerON(fd);

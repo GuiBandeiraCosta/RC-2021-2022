@@ -86,7 +86,7 @@ int ListGroupsDir(GROUPLIST *list){
     struct dirent *dir;
     int i=0;
     FILE *fp;
-    char GIDname[530] = "";
+    char GIDname[30] = "";
     list->no_groups=0;
     d = opendir("GROUPS");
     if (d){
