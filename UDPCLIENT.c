@@ -742,7 +742,7 @@ int main(int argc,char* argv[]){
                         printf("Group subscribed to\n");
                     }
                     else if(strcmp(RGS,"RGS") == 0 && strcmp(RGS_STATUS,"NEW") == 0){
-                        printf("User %s created group %s named %s\nUser %s subscribed to group %s\n",user_logged,gid_created,gname,user_logged,gid_created);
+                        printf("New group created and subscribed: %s - \"%s\"\n",gid_created,gname,user_logged,gid_created);
                         
                     }
                     else if(strcmp(buffer,"RGS E_USR") == 0){

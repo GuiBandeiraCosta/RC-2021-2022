@@ -195,12 +195,10 @@ int UdpCommands(char buffer[]){
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || (n_clients >= 100000)){ /*ERROR*/
                  n = sendto(udpfd,"RRG NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
                  if(n==-1) exit(1);
-                 printf("Fiz isto1\n");
             }
             else if(SearchUID(uid_str) != 0){
                  n = sendto(udpfd,"RRG DUP\n",n,0,(struct sockaddr*)&addr,addrlen);
                  if(n==-1) exit(1);
-                 printf("Fiz isto2\n");
             }
             else{
                 if (CreateUserDir(uid_str,password) == 0){
@@ -212,7 +210,9 @@ int UdpCommands(char buffer[]){
                     
                     if(n==-1) exit(1);
                     n_clients += 1;
-                    printf("Fiz isto3\n");
+                    if(flag_v==1){
+                        printf("UID=%s: new user\n", uid_str); 
+                    }
                 }  
             }   
         }
@@ -234,7 +234,6 @@ int UdpCommands(char buffer[]){
                 sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
                 f = fopen(user_password,"r");
                 fscanf(f,"%8s",check_pass);
-		        printf("ISTO È O CHECK PASS %s\n",check_pass);
                 fclose(f);
             if (strcmp(check_pass, password )== 0){
                 f = fopen(user_login,"w");
@@ -242,6 +241,9 @@ int UdpCommands(char buffer[]){
                     
                     n = sendto(udpfd,"RLO OK\n",n,0,(struct sockaddr*)&addr,addrlen);
                     if(n==-1) exit(1);
+                     if(flag_v==1){
+                        printf("UID=%s: login ok\n", uid_str); 
+                    }
                 }
                 fclose(f);
             }
@@ -342,7 +344,6 @@ int UdpCommands(char buffer[]){
             free(list);
             n = sendto(udpfd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
             if(n==-1) exit(1);
-            
         }
         else if(strcmp(command,"GLM") == 0){
             char send[3070] = "";
@@ -444,7 +445,7 @@ int UdpCommands(char buffer[]){
                             f = fopen(subscribe,"w");
                             fclose(f);
                             n = sendto(udpfd,"RGS OK\n",n,0,(struct sockaddr*)&addr,addrlen); 
-                            if(n==-1) exit(1);
+                            if(n==-1) exit(1);         
                         }
                     }
                     closedir(d);
@@ -490,6 +491,9 @@ int UdpCommands(char buffer[]){
                         sprintf(send,"RGS NEW %s\n",n_groups_str);
                         n = sendto(udpfd,send,n,0,(struct sockaddr*)&addr,addrlen); 
                         if(n==-1) exit(1);
+                        if(flag_v==1){
+                            printf("UID=%s: new group: %s - \"%s\" \n",uid_str,n_groups_str,gname); 
+                        }   
                     }
                 }
                 
@@ -567,7 +571,7 @@ int ulist(){
     while(nleft > 0){
         nread=write(newfd,ptr,nleft);
         printf("ptr %s\n,",ptr);
-        if(nread==-1)/*error*/exit(1);
+        if(nread==-1){printf("ERROR"); exit(1);}
         else if(nread==0)break;//closed by peer
         nleft-=nread;
         ptr+=nread;
@@ -583,7 +587,7 @@ int TcpCommands(){
     nleft= 4; 
     while(nleft > 0){ /* Le o primeiro comando e o espaço a seguir*/
         nread=read(newfd,ptr,1);
-        if(nread==-1)/*error*/exit(1);
+        if(nread==-1){printf("ERROR"); exit(1);}
         else if(nread==0)break;//closed by peer
         nleft-=nread;
         ptr+=nread;
@@ -638,43 +642,37 @@ int main(int argc, char *argv[]){
 
     sprintf(dsport, "%d",dsport_err);
     errcode=getaddrinfo(NULL,dsport,&hints_fd,&res_udp);
-    if(errcode != 0) printf("Could");
+    if(errcode != 0){ printf("Nao conseguiu obter endereço"); exit(1); }
     errcode=getaddrinfo(NULL,dsport,&hints_tcp,&res_tcp);
-    if(errcode != 0) printf("3");
+    if(errcode != 0) {printf("Nao conseguiu obter endereço"); exit(1); }
     
     udpfd = socket(AF_INET,SOCK_DGRAM,0) /*UDP*/;
-    if(udpfd ==-1) printf("Failed Udp Socket\n");
+    if(udpfd ==-1){ printf("Failed Udp Socket\n");  exit(1);}
     n= bind(udpfd,res_udp->ai_addr,res_udp->ai_addrlen);
-    if(n==-1) printf("Nao consegui dar bind udpfd\n");
+    if(n==-1) {printf("Nao consegui dar bind udpfd\n");  exit(1);}
 
     tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-    if(tcpfd ==-1) printf("Failed Tcp socket");
+    if(tcpfd ==-1) {printf("Failed Tcp socket"); exit(1);}
     n= bind(tcpfd,res_tcp->ai_addr,res_tcp->ai_addrlen);
-    if(n==-1) printf("Nao consegui dar bind tcpfd\n");
-    puts("After Second Bind\n");
-    if(listen(tcpfd,5) == -1) printf("7");
-    puts("After Listen\n"); 
+    if(n==-1){ printf("Nao consegui dar bind tcpfd\n"); exit(1); }
+    if(listen(tcpfd,5) == -1) {printf("Nao consegui dar listen tcpfd\n"); exit(1); } 
+
      
     int flag = 0;
     while(1){
-        puts("Entrei while\n");
         FD_ZERO(&rfds); 
         FD_SET(udpfd,&rfds);
         FD_SET(tcpfd,&rfds);
         maxfd=max(udpfd,tcpfd);
-        printf("MAXFD,%d\n",maxfd);
         checker=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval *)NULL);
         if(checker <= 0) printf("Checker Failed\n");
-        printf("CHECKER %d\n",checker);
         if(FD_ISSET(udpfd,&rfds)){ /*UDP */
             if (flag == 0){
                 flag = 1;
                 char buffer[128] = "";
-                printf("IDLE UDP\n");
                 addrlen = sizeof(addr);
                 n=recvfrom(udpfd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
                 if(n==-1) exit(1);
-                printf("isto e o buffer %s\n",buffer);
                 UdpCommands(buffer);
                 flag = 0;
             }
