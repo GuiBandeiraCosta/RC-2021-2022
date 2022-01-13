@@ -372,6 +372,23 @@ int main(int argc,char* argv[]){
             }
 
         }
+        else if(strcmp(command,"retrive")==0  strcmp(command,"r")==0){
+            char mid[5];
+            sscanf(input,"%s %s",command,mid);
+            /*if(strcmp(user_logged,"") == 0  strcmp(logged_pass,"") == 0){
+                printf("User not logged in\n");
+            }
+            else if(strcmp(gid_selected,"") == 0){
+                printf("Group not Selected\n");
+            } */
+            if(strlen(mid) != 4){
+                 printf("Invalid MID: Must be 4 digits long\n");
+            }
+            else{
+
+            }
+
+        }
 
         else if(strcmp(command,"a")== 0){
             char buffer[20] = "";
