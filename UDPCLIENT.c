@@ -38,8 +38,18 @@ int TimerOFF(int sd){
     return (setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tmout,sizeof(struct timeval)));
 }
 
-
-
+char *remove_white_spaces(char *str)
+{
+	int i = 0, j = 0;
+	while (str[i])
+	{
+		if (str[i] != ' ')
+          str[j++] = str[i];
+		i++;
+	}
+	str[j] = '\0';
+	return str;
+}
 int UlistReader(char buffer[]){
     
     char *ptr;
@@ -191,6 +201,206 @@ int PostFReader(char buffer[],char text[],char Fname[],long fsize){
         nleft-=nread;
         ptr+=nread;
     }
+}
+
+int ReceiveFReader(char buffer[]){
+    ssize_t nbytes,nleft,nwritten,nread,dread = 0;
+    char send[300];
+    char data[512];
+    char *ptr;
+    FILE *f;
+    
+    char char_times[4] = "";
+    int n_times = 0;
+    
+    char spaces[3] = "";
+    char bar[3] = "";
+    
+    int flag = 0;
+    //send file packets//
+    nleft = 7;ptr = buffer;
+    while(nleft>0){
+        nread=read(afd,ptr,1);
+        if(ptr[0] == '\n'){ /*If reads == ERR*/
+            break;
+        }
+        if(nread <= 0) printf("FALHEI left\n");
+        nleft-=nread;
+        ptr+=nread;
+    }
+    if(strcmp(buffer,"ERR\n") == 0){
+        printf("Error:Unexpected Protocal Message\n");
+    }
+    else if(strcmp(buffer,"RRT NOK") == 0){
+        printf("Retreive not sucessuful\n");
+    }
+    else if(strcmp(buffer,"RRT EOF") == 0){
+        printf("Group %s didnt have messages\n",gid_selected);
+    }
+    else{
+        nleft = 3;ptr = char_times;
+        while(nleft>0){ /*GET N*/
+            nread=read(afd,ptr,1);
+            if(nread <= 0) printf("FALHEI left\n");
+            if (ptr[0] == ' '){
+                    nleft-=nread;
+                    ptr+=nread;
+                    break;
+                }
+            nleft-=nread;
+            ptr+=nread;
+        }
+        n_times = atoi(char_times);
+        printf("%d messages(s) retreived\n",n_times);
+        while(n_times > 0){
+            char text[242] = "";
+            char fsize[12] = "";
+            char filename[27] = "";
+            char mid[7] = "";
+            char uid[7] = "";
+            char tsize[5] = "";
+            nleft = 5;ptr = mid;
+            if(flag == 1){ /* Happens if there is no file next */
+                mid[0] = bar[0];
+                ptr++;
+                nleft = 4;
+                flag = 0;
+            }
+           
+            while(nleft>0){
+                nread=read(afd,ptr,nleft);
+                if(nread <= 0) printf("FALHEI left\n");
+                nleft-=nread;
+                ptr+=nread;
+            }
+            
+            nleft = 6;ptr = uid;
+            while(nleft>0){
+                nread=read(afd,ptr,nleft);
+                if(nread <= 0) printf("FALHEI left\n");
+                nleft-=nread;
+                ptr+=nread;
+            }
+            
+            nleft = 4; ptr = tsize;
+            while(nleft>0){
+                nread=read(afd,ptr,1);
+                
+                if (ptr[0] == ' '){
+                    nleft-=nread;
+                    ptr+=nread;
+                    break;
+                }
+                if(nread ==-1)/*error*/exit(1);
+                else if(nread==0)break;//closed by peer
+                nleft-=nread;
+                ptr+=nread; 
+            }
+            
+            nleft = atoi(tsize);ptr = text;
+            
+            while(nleft>0){
+                nread=read(afd,ptr,nleft);
+                if(nread ==-1)/*error*/exit(1);
+                else if(nread==0)break;//closed by peer
+                nleft-=nread;
+                ptr+=nread; 
+            }
+            
+            nleft = 1; ptr = spaces;
+            while(nleft>0){
+                nread=read(afd,ptr,1);
+                
+                if(nread ==-1)/*error*/exit(1);
+                else if(nread==0)break;//closed by peer
+                nleft-=nread;
+                ptr+=nread; 
+            }
+           
+            if(spaces[0] == ' '){
+                nleft = 1;ptr = bar;
+                    while(nleft>0){
+                        nread=read(afd,ptr,1);
+                        
+                        if(nread ==-1)/*error*/exit(1);
+                        else if(nread==0)break;//closed by peer
+                        nleft-=nread;
+                        ptr+=nread; 
+                    }
+                
+                if(bar[0] == '/'){ /*Reads a File */
+                    nleft = 1;ptr = spaces;
+                        while(nleft>0){
+                            nread=read(afd,ptr,1);
+                            if(nread ==-1)/*error*/exit(1);
+                            else if(nread==0)break;//closed by peer
+                            nleft-=nread;
+                            ptr+=nread; 
+                        }
+                    nleft = 25;ptr = filename;
+                    while(nleft>0){
+                        nread=read(afd,ptr,1);
+                        if(nread ==-1)/*error*/exit(1);
+                        else if(nread==0)break;//closed by peer
+                            if (ptr[0] == ' '){
+                            nleft-=nread;
+                            ptr+=nread;
+                            break;
+                        }
+                        nleft-=nread;
+                        ptr+=nread; 
+                    }
+                    remove_white_spaces(filename);
+                    nleft = 11;ptr = fsize;
+                    while(nleft>0){
+                        nread=read(afd,ptr,1);
+                        if(nread ==-1)/*error*/exit(1);
+                        else if(nread==0)break;//closed by peer
+                            if (ptr[0] == ' '){
+                            nleft-=nread;
+                            ptr+=nread;
+                            break;
+                        }
+                        nleft-=nread;
+                        ptr+=nread; 
+                    }
+                   
+                    
+                    f = fopen(filename,"wb");
+                    nleft= atoi(fsize);
+                    while(nleft > 0){
+                        ptr = data;
+                        if(nleft < 512){
+                            read(afd,ptr,nleft);
+                        }
+                        else{
+                            nread = read(afd,ptr,512);
+                        }
+                        fwrite(data,sizeof(unsigned char),nread,f);
+                        nleft-=nread;
+                        ptr+=nread; 
+                        strcpy(data,"");   
+                    }
+                    fclose(f);
+                    nleft = 1;ptr = spaces;
+                        while(nleft>0){
+                            nread=read(afd,ptr,1);
+                            if(nread ==-1)/*error*/exit(1);
+                            else if(nread==0)break;//closed by peer
+                            nleft-=nread;
+                            ptr+=nread; 
+                    }
+                }
+                else{
+                    flag = 1;
+                }
+                
+            }
+        printf("%s- \"%s\";File Stored: %s\n",mid,text,filename);
+        n_times--;
+        }/*End of N Times*/
+    }
+   return 0;
 }
 
 int InputParse(int argc,char* argv[]){
@@ -372,8 +582,9 @@ int main(int argc,char* argv[]){
             }
 
         }
-        else if(strcmp(command,"retrive")==0  strcmp(command,"r")==0){
-            char mid[5];
+        else if(strcmp(command,"retrive")==0 ||strcmp(command,"r")==0){
+            char mid[5] = "";
+            
             sscanf(input,"%s %s",command,mid);
             /*if(strcmp(user_logged,"") == 0  strcmp(logged_pass,"") == 0){
                 printf("User not logged in\n");
@@ -385,11 +596,27 @@ int main(int argc,char* argv[]){
                  printf("Invalid MID: Must be 4 digits long\n");
             }
             else{
-
+                afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+                n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+                if(n == -1) printf("Connect failed\n");
+                char buffer[10000] = "";
+                char send[20] = "";
+                char *ptr;
+                ssize_t nbytes,nleft,nwritten,nread;
+                sprintf(send,"RTV %.5s %.2s %.4s\n",user_logged,gid_selected,mid);
+                ptr = send;
+                nleft = strlen(send);
+                while(nleft>0){
+                    nwritten=write(afd,ptr,nleft);
+                    if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
+                    exit(1);}
+                    nleft-=nwritten;
+                    ptr+=nwritten;
+                }
+                ReceiveFReader(buffer);
             }
 
         }
-
         else if(strcmp(command,"a")== 0){
             char buffer[20] = "";
             char wait[20];
@@ -554,6 +781,7 @@ int main(int argc,char* argv[]){
                     if(strcmp(buffer,"ROU OK") == 0){
                         strcpy(user_logged,"");
                         strcpy(logged_pass,"");
+                        strcpy(gid_selected,"");
                         printf("User successfuly logged out\n");
                     }
                     else if(strcmp(buffer,"ROU NOK") == 0){
@@ -759,7 +987,7 @@ int main(int argc,char* argv[]){
                         printf("Group subscribed to\n");
                     }
                     else if(strcmp(RGS,"RGS") == 0 && strcmp(RGS_STATUS,"NEW") == 0){
-                        printf("New group created and subscribed: %s - \"%s\"\n",gid_created,gname,user_logged,gid_created);
+                        printf("New group created and subscribed: %s - \"%s\"\n",gid_created,gname);
                         
                     }
                     else if(strcmp(buffer,"RGS E_USR") == 0){
