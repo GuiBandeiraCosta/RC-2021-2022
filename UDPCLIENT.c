@@ -18,7 +18,7 @@ char logged_pass[9] = "";
 char gid_selected[3] = "";
 
 /* Connection*/
-int fd,afd,errcode = 0;
+int fd,tcpfd,errcode = 0;
 ssize_t n;
 socklen_t addrlen;
 struct addrinfo hints_fd,hints_tcp, *res_udp, *res_tcp;
@@ -60,7 +60,7 @@ int UlistReader(char buffer[]){
     nbytes= strlen(buffer);
     nleft=nbytes;
     while(nleft>0){
-        nwritten=write(afd,ptr,nleft);
+        nwritten=write(tcpfd,ptr,nleft);
         if(nwritten<=0)/*error*/printf("ULIST WRITE FAILED\n");
         nleft-=nwritten;
         ptr+=nwritten;
@@ -69,7 +69,7 @@ int UlistReader(char buffer[]){
     
     nleft=8; ptr=buffer;
     while(nleft>0){
-        nread=read(afd,ptr,1);
+        nread=read(tcpfd,ptr,1);
         if(nread==-1)/*error*/exit(1);
         else if(nread==0)break;//closed by peer
         nleft-=nread;
@@ -81,7 +81,7 @@ int UlistReader(char buffer[]){
     else{
         nleft = 23;
         while(nleft>0){
-            nread=read(afd,ptr,1);
+            nread=read(tcpfd,ptr,1);
             if(ptr[0] == '\n'){
                 return nread;
             }
@@ -98,7 +98,7 @@ int UlistReader(char buffer[]){
         }
         nleft = 594; /*6(uid with space or \n) times 99 = 594 */
         while(nleft>0){
-            nread=read(afd,ptr,6);
+            nread=read(tcpfd,ptr,6);
             if( nread == 6){
                 if(ptr[5] == '\n'){
                     nleft-=nread;
@@ -124,8 +124,8 @@ int PostReader(char buffer[],char text[]){
     ptr = send;
     nleft = strlen(send);
     while(nleft>0){
-        nwritten=write(afd,ptr,nleft);
-        if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
+        nwritten=write(tcpfd,ptr,nleft);
+        if(nwritten<=0)/*error*/{printf("FALHEI Write\n");
         exit(1);}
         nleft-=nwritten;
         ptr+=nwritten;
@@ -133,8 +133,8 @@ int PostReader(char buffer[],char text[]){
 
     nleft = 9;ptr = buffer;
     while(nleft>0){
-        nread=read(afd,ptr,1);
-        if(nread <= 0) printf("FALHEI left\n");
+        nread=read(tcpfd,ptr,1);
+        if(nread <= 0) printf("FALHEI READ\n");
         if(ptr[0] == '\n'){
                 nleft-=nread;
                 ptr+=nread;
@@ -158,8 +158,8 @@ int PostFReader(char buffer[],char text[],char Fname[],long fsize){
     nleft = strlen(send);
     // sends first send //
     while(nleft>0){
-        nwritten=write(afd,ptr,nleft);
-        if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
+        nwritten=write(tcpfd,ptr,nleft);
+        if(nwritten<=0)/*error*/{printf("FALHEI Write\n");
         exit(1);}
         nleft-=nwritten;
         ptr+=nwritten;
@@ -171,19 +171,19 @@ int PostFReader(char buffer[],char text[],char Fname[],long fsize){
         nleft = 512;
         ptr = data;
         while(nleft>0){
-        nwritten=write(afd,ptr,nleft);
-        if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
-        exit(1);}
-        nleft-=nwritten;
-        ptr+=nwritten;
+            nwritten=write(tcpfd,ptr,nleft);
+            if(nwritten<=0)/*error*/{printf("FALHEI Write\n");
+            exit(1);}
+            nleft-=nwritten;
+            ptr+=nwritten;
         }   
     }
     //sends last \n //
 
         nleft = 1;
         while(nleft>0){
-        nwritten=write(afd,"\n",nleft);
-        if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
+        nwritten=write(tcpfd,"\n",nleft);
+        if(nwritten<=0)/*error*/{printf("FALHEI Write\n");
         exit(1);}
         nleft-=nwritten;
         }   
@@ -191,8 +191,8 @@ int PostFReader(char buffer[],char text[],char Fname[],long fsize){
     //get server response// 
     nleft = 9;ptr = buffer;
     while(nleft>0){
-        nread=read(afd,ptr,1);
-        if(nread <= 0) printf("FALHEI left\n");
+        nread=read(tcpfd,ptr,1);
+        if(nread <= 0) printf("FALHEI Write\n");
         if(ptr[0] == '\n'){
                 nleft-=nread;
                 ptr+=nread;
@@ -220,11 +220,11 @@ int RetrieveFReader(char buffer[]){
     //send file packets//
     nleft = 7;ptr = buffer;
     while(nleft>0){
-        nread=read(afd,ptr,1);
+        nread=read(tcpfd,ptr,1);
         if(ptr[0] == '\n'){ /*If reads == ERR*/
             break;
         }
-        if(nread <= 0) printf("FALHEI left\n");
+        if(nread <= 0) printf("FALHEI READ\n");
         nleft-=nread;
         ptr+=nread;
     }
@@ -237,10 +237,11 @@ int RetrieveFReader(char buffer[]){
     else if(strcmp(buffer,"RRT EOF") == 0){
         printf("Group %s didnt have messages\n",gid_selected);
     }
+    
     else{
         nleft = 3;ptr = char_times;
         while(nleft>0){ /*GET N*/
-            nread=read(afd,ptr,1);
+            nread=read(tcpfd,ptr,1);
             if(nread <= 0) printf("FALHEI left\n");
             if (ptr[0] == ' '){
                     nleft-=nread;
@@ -251,7 +252,7 @@ int RetrieveFReader(char buffer[]){
             ptr+=nread;
         }
         n_times = atoi(char_times);
-        printf("%d messages(s) retreived\n",n_times);
+        printf("%d message(s) retreived\n",n_times);
         while(n_times > 0){
             char text[242] = "";
             char fsize[12] = "";
@@ -268,23 +269,23 @@ int RetrieveFReader(char buffer[]){
             }
            
             while(nleft>0){
-                nread=read(afd,ptr,nleft);
-                if(nread <= 0) printf("FALHEI left\n");
+                nread=read(tcpfd,ptr,nleft);
+                if(nread <= 0) printf("FALHEI write\n");
                 nleft-=nread;
                 ptr+=nread;
             }
             
             nleft = 6;ptr = uid;
             while(nleft>0){
-                nread=read(afd,ptr,nleft);
-                if(nread <= 0) printf("FALHEI left\n");
+                nread=read(tcpfd,ptr,nleft);
+                if(nread <= 0) printf("FALHEI read\n");
                 nleft-=nread;
                 ptr+=nread;
             }
             
             nleft = 4; ptr = tsize;
             while(nleft>0){
-                nread=read(afd,ptr,1);
+                nread=read(tcpfd,ptr,1);
                 
                 if (ptr[0] == ' '){
                     nleft-=nread;
@@ -300,7 +301,7 @@ int RetrieveFReader(char buffer[]){
             nleft = atoi(tsize);ptr = text;
             
             while(nleft>0){
-                nread=read(afd,ptr,nleft);
+                nread=read(tcpfd,ptr,nleft);
                 if(nread ==-1)/*error*/exit(1);
                 else if(nread==0)break;//closed by peer
                 nleft-=nread;
@@ -309,18 +310,18 @@ int RetrieveFReader(char buffer[]){
             
             nleft = 1; ptr = spaces;
             while(nleft>0){
-                nread=read(afd,ptr,1);
+                nread=read(tcpfd,ptr,1);
                 
                 if(nread ==-1)/*error*/exit(1);
                 else if(nread==0)break;//closed by peer
                 nleft-=nread;
                 ptr+=nread; 
             }
-           
+            
             if(spaces[0] == ' '){
                 nleft = 1;ptr = bar;
                     while(nleft>0){
-                        nread=read(afd,ptr,1);
+                        nread=read(tcpfd,ptr,1);
                         
                         if(nread ==-1)/*error*/exit(1);
                         else if(nread==0)break;//closed by peer
@@ -331,7 +332,7 @@ int RetrieveFReader(char buffer[]){
                 if(bar[0] == '/'){ /*Reads a File */
                     nleft = 1;ptr = spaces;
                         while(nleft>0){
-                            nread=read(afd,ptr,1);
+                            nread=read(tcpfd,ptr,1);
                             if(nread ==-1)/*error*/exit(1);
                             else if(nread==0)break;//closed by peer
                             nleft-=nread;
@@ -339,7 +340,7 @@ int RetrieveFReader(char buffer[]){
                         }
                     nleft = 25;ptr = filename;
                     while(nleft>0){
-                        nread=read(afd,ptr,1);
+                        nread=read(tcpfd,ptr,1);
                         if(nread ==-1)/*error*/exit(1);
                         else if(nread==0)break;//closed by peer
                             if (ptr[0] == ' '){
@@ -350,10 +351,11 @@ int RetrieveFReader(char buffer[]){
                         nleft-=nread;
                         ptr+=nread; 
                     }
+                    
                     remove_white_spaces(filename);
                     nleft = 11;ptr = fsize;
                     while(nleft>0){
-                        nread=read(afd,ptr,1);
+                        nread=read(tcpfd,ptr,1);
                         if(nread ==-1)/*error*/exit(1);
                         else if(nread==0)break;//closed by peer
                             if (ptr[0] == ' '){
@@ -371,10 +373,10 @@ int RetrieveFReader(char buffer[]){
                     while(nleft > 0){
                         ptr = data;
                         if(nleft < 512){
-                            read(afd,ptr,nleft);
+                            read(tcpfd,ptr,nleft);
                         }
                         else{
-                            nread = read(afd,ptr,512);
+                            nread = read(tcpfd,ptr,512);
                         }
                         fwrite(data,sizeof(unsigned char),nread,f);
                         nleft-=nread;
@@ -384,7 +386,7 @@ int RetrieveFReader(char buffer[]){
                     fclose(f);
                     nleft = 1;ptr = spaces;
                         while(nleft>0){
-                            nread=read(afd,ptr,1);
+                            nread=read(tcpfd,ptr,1);
                             if(nread ==-1)/*error*/exit(1);
                             else if(nread==0)break;//closed by peer
                             nleft-=nread;
@@ -445,7 +447,7 @@ int main(int argc,char* argv[]){
     
     fd= socket(AF_INET,SOCK_DGRAM,0);
     if(fd==-1) exit(1);
-    if (afd == -1) exit(1);
+    if (tcpfd == -1) exit(1);
     
     memset(&hints_fd,0,sizeof hints_fd);
     hints_fd.ai_family=AF_INET; //IPv4
@@ -475,8 +477,8 @@ int main(int argc,char* argv[]){
             else{
                 char *list;
                 char buffer[650] = "";
-                afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-                n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+                tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+                n = connect(tcpfd,res_tcp->ai_addr,res_tcp->ai_addrlen);
                 if(n == -1) printf("Connect failed\n");
                 else{
                     UlistReader(buffer);
@@ -506,7 +508,7 @@ int main(int argc,char* argv[]){
                         }   
                     }
                 }
-                close(afd);
+                close(tcpfd);
             }
         }
         if(strcmp(command, "post") == 0){
@@ -534,12 +536,12 @@ int main(int argc,char* argv[]){
                     
                 }
                 else if(strcmp(Fname,"") == 0){
-                    afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-                    n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+                    tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+                    n = connect(tcpfd,res_tcp->ai_addr,res_tcp->ai_addrlen);
                     if(n == -1) printf("Connect failed\n");
                     PostReader(buffer,text);
                     buffer[strcspn(buffer, "\n")] = 0;
-                    close(afd);
+                    close(tcpfd);
                     flag = 1;
                 }
                 else if(access( Fname, F_OK ) != 0){
@@ -556,11 +558,11 @@ int main(int argc,char* argv[]){
                         printf("File Size to big must be under 10 digits\n");
                     }
                     else{
-                        afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-                        n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+                        tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+                        n = connect(tcpfd,res_tcp->ai_addr,res_tcp->ai_addrlen);
                         PostFReader(buffer,text,Fname,fsize); 
                         buffer[strcspn(buffer, "\n")] = 0;
-                        close(afd);
+                        close(tcpfd);
                         flag = 1;
                     }
                 }
@@ -586,18 +588,18 @@ int main(int argc,char* argv[]){
             char mid[5] = "";
             
             sscanf(input,"%s %s",command,mid);
-            /*if(strcmp(user_logged,"") == 0  strcmp(logged_pass,"") == 0){
+            if(strcmp(user_logged,"") == 0 ||strcmp(logged_pass,"") == 0){
                 printf("User not logged in\n");
             }
             else if(strcmp(gid_selected,"") == 0){
                 printf("Group not Selected\n");
-            } */
+            }
             if(strlen(mid) != 4){
                  printf("Invalid MID: Must be 4 digits long\n");
             }
             else{
-                afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-                n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+                tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+                n = connect(tcpfd,res_tcp->ai_addr,res_tcp->ai_addrlen);
                 if(n == -1) printf("Connect failed\n");
                 char buffer[10000] = "";
                 char send[20] = "";
@@ -607,8 +609,8 @@ int main(int argc,char* argv[]){
                 ptr = send;
                 nleft = strlen(send);
                 while(nleft>0){
-                    nwritten=write(afd,ptr,nleft);
-                    if(nwritten<=0)/*error*/{printf("FALHEI RIGHT\n");
+                    nwritten=write(tcpfd,ptr,nleft);
+                    if(nwritten<=0)/*error*/{printf("FALHEI Write\n");
                     exit(1);}
                     nleft-=nwritten;
                     ptr+=nwritten;
@@ -620,19 +622,19 @@ int main(int argc,char* argv[]){
         else if(strcmp(command,"a")== 0){
             char buffer[20] = "";
             char wait[20];
-            afd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-            n = connect(afd,res_tcp->ai_addr,res_tcp->ai_addrlen);
+            tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
+            n = connect(tcpfd,res_tcp->ai_addr,res_tcp->ai_addrlen);
             if(n == -1) printf("Connect failed\n");
-            n = write(afd,"ULS 09\n",7);
+            n = write(tcpfd,"ULS 09\n",7);
             printf("CHEGUEI\n");
             if(n == -1) printf("WRITE failed\n");
             printf("CHEGUEI2\n");
 
-            n = read(afd,buffer,10);
+            n = read(tcpfd,buffer,10);
             printf("CHEGUEI3\n");
             if(n == -1) printf("Read failed\n");
             printf("BUFFER %s\n",buffer);
-            close(afd);
+            close(tcpfd);
         }
         else if(strcmp(command,"reg")== 0){
             char send[20] = "";

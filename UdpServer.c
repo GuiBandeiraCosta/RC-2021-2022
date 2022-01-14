@@ -94,7 +94,7 @@ char *remove_white_spaces(char *str)
 	return str;
 }
 
-int Messages_in_group(char gid[],char nmsg[]){
+int Messages_in_group(char gid[],char nmsg[],int flag){
     DIR *d;
     struct dirent *dir;
     int i=0;
@@ -107,7 +107,9 @@ int Messages_in_group(char gid[],char nmsg[]){
                 continue;
             else{ i++;}
         }
-        i++;
+        if (flag == 1){
+            i++;
+        }
         if(i < 10){ sprintf(nmsg,"000%d",i);}
         else if(10 <= i < 100){ sprintf(nmsg,"00%d",i);}
         else if(100 <= i < 1000){ sprintf(nmsg,"0%d",i);}
@@ -116,8 +118,9 @@ int Messages_in_group(char gid[],char nmsg[]){
 }
 
 int ListGroupsDir(GROUPLIST *list){
-    DIR *d;
-    struct dirent *dir;
+    DIR *d, *d_msg;
+    struct dirent *dir,*dir_msg;
+    char msg_dir[20] = "";
     int i=0;
     FILE *fp;
     char GIDname[30] = "";
@@ -125,11 +128,26 @@ int ListGroupsDir(GROUPLIST *list){
     d = opendir("GROUPS");
     if (d){
         while ((dir = readdir(d)) != NULL){
+            char last_msg[6] = "";
             if(dir->d_name[0]=='.')
                 continue;
             if(strlen(dir->d_name)>2)
                 continue;
-            strcpy(list->group_message[i],"0000");
+            sprintf(msg_dir,"GROUPS/%.2s/MSG",dir->d_name);
+            
+            d_msg = opendir(msg_dir);
+            while ((dir_msg = readdir(d_msg)) != NULL){
+                
+                if(dir_msg->d_name[0]=='.'){
+                    continue;
+                }
+                sprintf(last_msg,"%.4s",dir_msg->d_name);
+                strcpy(list->group_message[i],last_msg);
+            }
+            closedir(d_msg);
+            if(strcmp(last_msg,"") == 0){
+                strcpy(list->group_message[i],"0000");
+            }
             strcpy(list->group_no[i], dir->d_name);
             sprintf(GIDname,"GROUPS/%.2s/%.2s_name.txt",dir->d_name,dir->d_name);
             fp=fopen(GIDname,"r");
@@ -150,6 +168,26 @@ int ListGroupsDir(GROUPLIST *list){
     return(list->no_groups);
 }
 
+int getFile(char gid[], char mid[], char filename[]){
+    DIR *d;
+    struct dirent *dir;
+    
+    char msg_dir[30] = "";
+    sprintf(msg_dir,"GROUPS/%s/MSG/%s",gid, mid);
+    d = opendir(msg_dir);
+    if (d){
+        while ((dir = readdir(d)) != NULL){
+            if(dir->d_name[0]=='.'){
+                continue;
+            }
+            if(strcmp(dir->d_name, "A U T H O R.txt")!=0 && strcmp(dir->d_name, "T E X T.txt")!=0 ){
+                strcpy(filename,dir->d_name);
+                 
+            }
+        }
+    }
+    
+} 
 
 int CreateUserDir(char UID[],char password[]){
     char user_dirname[20] = "";
@@ -166,6 +204,7 @@ int CreateUserDir(char UID[],char password[]){
     fclose(f);
     return(1);
 }
+
 
 int DelUserDir(char UID[]){
     char user_dirname[20] = "";
@@ -227,22 +266,24 @@ int UdpCommands(char buffer[]){
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || (n_clients >= 100000)){ /*ERROR*/
-                 n = sendto(udpfd,"RRG NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                 if(n==-1) exit(1);
+                 n = sendto(udpfd,"RRG NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                 if(n==-1) printf("Send to Failed on Reg\n");
             }
             else if(SearchUID(uid_str) != 0){
-                 n = sendto(udpfd,"RRG DUP\n",n,0,(struct sockaddr*)&addr,addrlen);
-                 if(n==-1) exit(1);
+                 n = sendto(udpfd,"RRG DUP\n",8,0,(struct sockaddr*)&addr,addrlen);
+                 if(n==-1) printf("Send to Failed on Reg\n");
+                 if(flag_v==1){
+                        printf("UID=%s: User Duplicate\n", uid_str); 
+                }
             }
             else{
                 if (CreateUserDir(uid_str,password) == 0){
-                    n = sendto(udpfd,"RRG NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RRG NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on Reg\n");
                 }
                 else{
-                    n = sendto(udpfd,"RRG OK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RRG OK\n",7,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on Reg\n");
                     n_clients += 1;
                     if(flag_v==1){
                         printf("UID=%s: new user\n", uid_str); 
@@ -260,8 +301,8 @@ int UdpCommands(char buffer[]){
             
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
-                n = sendto(udpfd,"RLO NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                if(n==-1) exit(1);
+                n = sendto(udpfd,"RLO NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                if(n==-1) printf("Send to Failed on LOG\n");
             }
             else{    
                 sprintf(user_password,"USERS/%s/%s_pass.txt",uid_str,uid_str);
@@ -273,8 +314,8 @@ int UdpCommands(char buffer[]){
                 f = fopen(user_login,"w");
                 if(f != NULL){
                     
-                    n = sendto(udpfd,"RLO OK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RLO OK\n",7,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on LOG\n");
                      if(flag_v==1){
                         printf("UID=%s: login ok\n", uid_str); 
                     }
@@ -282,8 +323,8 @@ int UdpCommands(char buffer[]){
                 fclose(f);
             }
                 else{
-                    n = sendto(udpfd,"RLO NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RLO NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on LOG\n");
                 }
             }
         }
@@ -297,8 +338,8 @@ int UdpCommands(char buffer[]){
             char group_member_path[30] = "";
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
-                n = sendto(udpfd,"RUN NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                if(n==-1) exit(1);
+                n = sendto(udpfd,"RUN NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                if(n==-1) printf("Send to Failed on UNR\n");
             }
             else{
                 sprintf(user_password,"USERS/%s/%s_pass.txt",uid_str,uid_str);
@@ -320,12 +361,15 @@ int UdpCommands(char buffer[]){
                     DelPassFile(uid_str);
                     DelLoginFile(uid_str);
                     DelUserDir(uid_str);
-                    n = sendto(udpfd,"RUN OK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RUN OK\n",7,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on UNR\n");
+                    if(flag_v==1){
+                        printf("UID=%s: User Unregister\n", uid_str); 
+                    }
                 }
                 else{
-                    n = sendto(udpfd,"RUN NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RUN NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on UNR\n");
                 }
             }
 
@@ -340,8 +384,8 @@ int UdpCommands(char buffer[]){
             
             sscanf(buffer,"%s %s %s",command,uid_str,password);
             if(strlen(uid_str)!=5 || (strlen(password) !=8) || SearchUID(uid_str) == 0){ /*ERROR*/
-                n = sendto(udpfd,"ROU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                if(n==-1) exit(1);
+                n = sendto(udpfd,"ROU NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                if(n==-1) printf("Send to Failed on OUT\n");
             }
             else{
                 sprintf(user_password,"USERS/%s/%s_pass.txt",uid_str,uid_str);
@@ -353,12 +397,15 @@ int UdpCommands(char buffer[]){
                 if(strcmp(password,check_pass) == 0 && f != NULL){
                     fclose(f);
                     DelLoginFile(uid_str);
-                    n = sendto(udpfd,"ROU OK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"ROU OK\n",7,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on OUT\n");
+                    if(flag_v==1){
+                        printf("UID=%s: User logout\n", uid_str); 
+                    }
                 }
                 else{
-                    n = sendto(udpfd,"ROU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"ROU NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on OUT\n");
                 }
             }
 
@@ -377,7 +424,10 @@ int UdpCommands(char buffer[]){
             strcat(send,"\n");
             free(list);
             n = sendto(udpfd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
-            if(n==-1) exit(1);
+            if(n==-1) printf("Send to Failed on GLS\n");
+            else if(flag_v==1){
+                    printf("Command Groups emmited\n");
+            }
         }
         else if(strcmp(command,"GLM") == 0){
             char send[3070] = "";
@@ -391,8 +441,8 @@ int UdpCommands(char buffer[]){
             sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
                 
             if(strlen(uid_str)!=5  || access( user_login, F_OK ) != 0){
-                    n = sendto(udpfd,"RGM E_USR\n",11,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RGM E_USR\n",10,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on OUT\n");
             }
             else{
                 GROUPLIST *list = malloc(sizeof(GROUPLIST));
@@ -408,8 +458,11 @@ int UdpCommands(char buffer[]){
                 
                 if(counter == 0){
                     free(list);
-                    n = sendto(udpfd,"RGM 0\n",7,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RGM 0\n",6,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on GLM\n");
+                    if(flag_v==1){
+                        printf("UID=%s: My Groups Empty\n", uid_str); 
+                    }
                 }
                 else{
                     sprintf(auxiliar,"RGM %d",counter);
@@ -418,7 +471,10 @@ int UdpCommands(char buffer[]){
                     strcat(send,"\n");
                     free(list);       
                     n = sendto(udpfd,send,strlen(send) ,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    if(n==-1) printf("Send to Failed on GLM\n");
+                     if(flag_v==1){
+                        printf("UID=%s: My Groups Ok\n", uid_str); 
+                    }
                 }
             }
         }
@@ -443,15 +499,15 @@ int UdpCommands(char buffer[]){
                 sprintf(user_login,"USERS/%s/%s_login.txt",uid_str,uid_str);
                 
                 if(strlen(uid_str)!=5  || strlen(gname) > 25|| n_groups >= 99){
-                    n = sendto(udpfd,"RGS NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RGS NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on GSR\n");
                     
                 }
                 
                 if( access( user_login, F_OK ) != 0 ){ /*NOT LOGGED IN*/
                     
-                    n = sendto(udpfd,"RGS E_USR\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RGS E_USR\n",10,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on GSR\n");
                 }
                 
                 else if(strcmp(gid_str,"00") != 0){ /*NO CREATION*/
@@ -460,8 +516,8 @@ int UdpCommands(char buffer[]){
                     DIR *d;
                     d = opendir(group_gid_dir);
                     if(d ==NULL){
-                        n = sendto(udpfd,"RGS E_GRP\n",n,0,(struct sockaddr*)&addr,addrlen); 
-                        if(n==-1) exit(1);
+                        n = sendto(udpfd,"RGS E_GRP\n",10,0,(struct sockaddr*)&addr,addrlen); 
+                        if(n==-1) printf("Send to Failed on GSR\n");
                     }
                     else{
                         
@@ -470,16 +526,19 @@ int UdpCommands(char buffer[]){
                         fscanf(f,"%24s",gname_checker);
                         fclose(f);
                         if(strcmp(gname_checker,gname)!= 0){
-                            n = sendto(udpfd,"RGS E_GNAME\n",n,0,(struct sockaddr*)&addr,addrlen); 
-                            if(n==-1) exit(1);
+                            n = sendto(udpfd,"RGS E_GNAME\n",12,0,(struct sockaddr*)&addr,addrlen); 
+                            if(n==-1) printf("Send to Failed on GSR\n");
                         }
                         else{
                             char subscribe[21] = "";
                             sprintf(subscribe,"%s/%s.txt",group_gid_dir,uid_str);
                             f = fopen(subscribe,"w");
                             fclose(f);
-                            n = sendto(udpfd,"RGS OK\n",n,0,(struct sockaddr*)&addr,addrlen); 
-                            if(n==-1) exit(1);         
+                            n = sendto(udpfd,"RGS OK\n",7,0,(struct sockaddr*)&addr,addrlen); 
+                            if(n==-1) printf("Send to Failed on GSR\n");
+                            if(flag_v==1){
+                            printf("UID=%s: User subscribed: %s - \"%s\" \n",uid_str,gid_str,gname); 
+                            }         
                         }
                     }
                     closedir(d);
@@ -499,8 +558,8 @@ int UdpCommands(char buffer[]){
                     }
                     free(list);
                     if(name_exists == 1){
-                        n = sendto(udpfd,"RGS E_GNAME\n",n,0,(struct sockaddr*)&addr,addrlen); 
-                        if(n==-1) exit(1);
+                        n = sendto(udpfd,"RGS E_GNAME\n",12,0,(struct sockaddr*)&addr,addrlen); 
+                        if(n==-1) printf("Send to Failed on GSR\n");
                     }
                     else{
                         n_groups++;
@@ -523,8 +582,8 @@ int UdpCommands(char buffer[]){
                         f = fopen(subscribe,"w");
                         fclose(f);
                         sprintf(send,"RGS NEW %s\n",n_groups_str);
-                        n = sendto(udpfd,send,n,0,(struct sockaddr*)&addr,addrlen); 
-                        if(n==-1) exit(1);
+                        n = sendto(udpfd,send,strlen(send),0,(struct sockaddr*)&addr,addrlen); 
+                        if(n==-1) printf("Send to Failed on GSR\n");
                         if(flag_v==1){
                             printf("UID=%s: new group: %s - \"%s\" \n",uid_str,n_groups_str,gname); 
                         }   
@@ -551,31 +610,34 @@ int UdpCommands(char buffer[]){
                 sprintf(group_gid_name,"GROUPS/%s/%s_name.txt",gid_str,gid_str);
                 sprintf(dir_group_sub,"GROUPS/%s/%s.txt",gid_str,uid_str);
                 if(strlen(uid_str)!=5  ||strlen(gid_str) !=2){
-                    n = sendto(udpfd,"RGU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RGU NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on GUR\n");
                 }
                 
                 else if( access( user_login, F_OK ) != 0 ){ /*NOT LOGGED IN*/
-                    n = sendto(udpfd,"RGU E_USR\n",n,0,(struct sockaddr*)&addr,addrlen);
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RGU E_USR\n",10,0,(struct sockaddr*)&addr,addrlen);
+                    if(n==-1) printf("Send to Failed on GUR\n");
                 }
                 else if(access( group_gid_name, F_OK ) != 0){ /* GROUP Doesnt Exist */
-                    n = sendto(udpfd,"RGU E_GRP\n",n,0,(struct sockaddr*)&addr,addrlen); 
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RGU E_GRP\n",10,0,(struct sockaddr*)&addr,addrlen); 
+                    if(n==-1) printf("Send to Failed on GUR\n");
                 }
                  else if(access( dir_group_sub, F_OK ) != 0){ /* User is not subbed*/
-                    n = sendto(udpfd,"RGU E_USR\n",n,0,(struct sockaddr*)&addr,addrlen); 
-                    if(n==-1) exit(1);
+                    n = sendto(udpfd,"RGU E_USR\n",n,10,(struct sockaddr*)&addr,addrlen); 
+                    if(n==-1) printf("Send to Failed on GUR\n");
                 }
                 else{
                     error = unlink(dir_group_sub);
                     if(error == 0){
-                        n = sendto(udpfd,"RGU OK\n",n,0,(struct sockaddr*)&addr,addrlen); 
-                        if(n==-1) exit(1);
+                        n = sendto(udpfd,"RGU OK\n",7,0,(struct sockaddr*)&addr,addrlen); 
+                        if(flag_v==1){
+                            printf("UID=%.5s: User Unsubscribed: %.2s\n",uid_str,gid_str); 
+                        } 
+                        if(n==-1) printf("Send to Failed on GUR\n");
                     }
                     else{
-                        n = sendto(udpfd,"RGU NOK\n",n,0,(struct sockaddr*)&addr,addrlen);
-                        if(n==-1) exit(1);
+                        n = sendto(udpfd,"RGU NOK\n",8,0,(struct sockaddr*)&addr,addrlen);
+                        if(n==-1) printf("Send to Failed on GUR\n");
                     }
                 }
         }
@@ -592,25 +654,27 @@ int ulist(){
     nleft= 2;
     while(nleft > 0){
         nread=read(newfd,ptr,1);
-        if(nread==-1)/*error*/exit(1);
+        if(nread==-1)/*error*/{printf("Read Failed on ULIST\n");return 0;}
         else if(nread==0)break;//closed by peer
         nleft-=nread;
         ptr+=nread;
     }
-    printf("GID %s\n",gid);
     UsersinGroup(buffer,gid);
     nleft = strlen(buffer);
-    printf("BUFFER %s lenght %ld\n",buffer,strlen(buffer));
+    
     ptr = buffer;
     while(nleft > 0){
         nread=write(newfd,ptr,nleft);
-        printf("ptr %s\n,",ptr);
-        if(nread==-1){printf("ERROR"); exit(1);}
+        
+        if(nread==-1)/*error*/{printf("Read Failed on ULIST\n");return 0;}
         else if(nread==0)break;//closed by peer
         nleft-=nread;
         ptr+=nread;
     }
     close(newfd);
+    if(flag_v == 1){
+        printf("Command Ulist called for group %.2s\n",gid);
+    }
 }
 
 int post(){
@@ -625,26 +689,30 @@ int post(){
     char msg_dir[30] ="";
     char fsize[12] = "";
     char n_msg[5] = "";
-
+    int flag = 0;
+    char file_path[60]="";
+    
     ptr = uid;
     nleft = 6;
     while(nleft>0){ /*GET N*/
         nread=read(newfd,ptr,1);
-        if(nread <= 0) printf("FALHEI left\n");
+        if(nread <= 0) /*error*/{printf("Read Failed on POST\n");return 0;}
         nleft-=nread;
         ptr+=nread;
         }
+    
     ptr = gid;
     remove_white_spaces(uid);
+    printf("UID1 %s\n",uid);
     nleft = 3;
     while(nleft>0){ /*GET N*/
         nread=read(newfd,ptr,1);
-        if(nread <= 0) printf("FALHEI left\n");
+        if(nread <= 0) /*error*/{printf("Read Failed on POST\n");return 0;}
         nleft-=nread;
         ptr+=nread;
     }
     remove_white_spaces(gid);
-    
+    printf("GID1 %s\n",gid);
     nleft = 4; ptr = tsize;
     while(nleft>0){
         nread=read(newfd,ptr,1);
@@ -653,56 +721,63 @@ int post(){
             ptr+=nread;
             break;
         }
-        if(nread ==-1)/*error*/exit(1);
+        if(nread ==-1)/*error*/{printf("Read Failed on POST\n");return 0;}
         else if(nread==0)break;//closed by peer
         nleft-=nread;
         ptr+=nread; 
     }
-
+     printf("TSIZE1 %s\n",tsize);
     nleft = atoi(tsize);ptr = text;
-        while(nleft>0){
-            nread=read(newfd,ptr,nleft);
-            if(nread ==-1)/*error*/exit(1);
-            else if(nread==0)break;//closed by peer
-            nleft-=nread;
-            ptr+=nread; 
-        }
+    while(nleft>0){
+        nread=read(newfd,ptr,nleft);
+        if(nread ==-1)/*error*/{printf("Read Failed on POST\n");return 0;}
+        else if(nread==0)break;//closed by peer
+        nleft-=nread;
+        ptr+=nread; 
+    }
+    printf("Text1 %s\n",text);
      nleft = 1; ptr = spaces;
-        while(nleft>0){
+    while(nleft>0){
             nread=read(newfd,ptr,1);
-            if(nread ==-1)/*error*/exit(1);
+            if(nread ==-1)/*error*/{printf("Read Failed on POST\n");return 0;}
             else if(nread==0)break;//closed by peer
             nleft-=nread;
             ptr+=nread; 
-        }
-
-    // verifcaoes //
-    FILE *f;
-    Messages_in_group(gid,n_msg);
-    printf("numero mesnagens %s\n",n_msg);
-    sprintf(msg_dir,"Groups/%.2s/MSG/%.4s",gid,n_msg);
-    mkdir(msg_dir,0700);
+    }
+    
+    char islogged[30] = "";
+    char gid_exist[30] = "";
+    char issub[30] = "";
     char msg_dir_author[50]= "";
     char msg_dir_text[50]= "";
+    Messages_in_group(gid,n_msg,1);
+    sprintf(msg_dir,"GROUPS/%.2s/MSG/%.4s",gid,n_msg);
     sprintf(msg_dir_author,"%s/A U T H O R.txt",msg_dir);
     sprintf(msg_dir_text,"%s/T E X T.txt",msg_dir);
-    printf("paths author %s text %s",msg_dir_author,msg_dir_text);
-    f = fopen(msg_dir_author,"w");
-    fwrite(uid,sizeof(char),5,f);
-    fclose(f);
-
-    f = fopen(msg_dir_text,"w");
-    fwrite(text,sizeof(char),strlen(text),f);
-    fclose(f);
-
-
-
-
+    sprintf(islogged,"USERS/%.5s/%.5s_login.txt",uid,uid);
+    sprintf(gid_exist,"GROUPS/%.2s/%.2s_name.txt",gid,gid);
+    sprintf(issub,"GROUPS/%.2s/%.5s.txt",gid,uid);
+    FILE *f;
+    if((access( islogged, F_OK ) != 0) || (access( gid_exist, F_OK ) != 0 ) || (access( issub, F_OK ) != 0)){
+        flag = 1;
+    }
+    if (flag == 0){
+        mkdir(msg_dir,0700);
+        f = fopen(msg_dir_author,"w");
+        fwrite(uid,sizeof(char),5,f);
+        fclose(f);
+        f = fopen(msg_dir_text,"w");
+        fwrite(text,sizeof(char),strlen(text),f);
+        fclose(f);
+    }
     if(spaces[0] == ' '){
+        if(access( islogged, F_OK ) != 0 || access( gid_exist, F_OK ) != 0 ||access( issub, F_OK ) != 0){
+            flag = 2;
+        }
         nleft = 25;ptr = filename;
             while(nleft>0){
                 nread=read(newfd,ptr,1);
-                if(nread ==-1)/*error*/exit(1);
+                if(nread ==-1)/*error*/{printf("Read Failed on POST\n");return 0;}
                 else if(nread==0)break;//closed by peer
                     if (ptr[0] == ' '){
                     nleft-=nread;
@@ -713,12 +788,12 @@ int post(){
                 ptr+=nread; 
             }
             remove_white_spaces(filename);
-            char file_path[60]="";
-            sprintf(file_path,"%s/%.24s",msg_dir,filename);
+            
+            
         nleft = 11;ptr = fsize;
             while(nleft>0){
                 nread=read(newfd,ptr,1);
-                if(nread ==-1)/*error*/exit(1);
+                if(nread ==-1)/*error*/{printf("Read Failed on POST\n");return 0;}
                 else if(nread==0)break;//closed by peer
                     if (ptr[0] == ' '){
                     nleft-=nread;
@@ -728,40 +803,73 @@ int post(){
                 nleft-=nread;
                 ptr+=nread; 
         }
-        // verificacoes c file //
         char data[514];
-        f = fopen(file_path,"wb");
+        if(flag == 0){
+            sprintf(file_path,"%s/%.24s",msg_dir,filename);
+            f = fopen(file_path,"wb");
+        }
             nleft= atoi(fsize);
             while(nleft > 0){
                 ptr = data;
                 if(nleft < 512){
-                    read(newfd,ptr,nleft);
+                    nread = read(newfd,ptr,nleft);
+                     if(nread ==-1)/*error*/{printf("Read Failed on POST\n");return 0;}
+                    else if(nread==0)break;//closed by peer
                 }
                 else{
                     nread = read(newfd,ptr,512);
+                     if(nread ==-1)/*error*/{printf("Read Failed on POST\n");return 0;}
+                    else if(nread==0)break;//closed by peer
                 }
-                fwrite(data,sizeof(unsigned char),nread,f);
+                if (flag == 0){
+                    fwrite(data,sizeof(unsigned char),nread,f);
+                }
                 nleft-=nread;
                 ptr+=nread; 
                 strcpy(data,"");   
             }
-            fclose(f);
-    }
-    char send[12]= "";
-    sprintf(send, "RPT %s\n",n_msg);
-    printf("send %s\n",send);
-     nleft = 9; ptr = send;
-        while(nleft>0){
-            nwritten=write(newfd,ptr,nleft);
-            if(nwritten ==-1)/*error*/exit(1);
-            else if(nwritten==0)break;//closed by peer
-            nleft-=nwritten;
-            ptr+=nwritten; 
+        if(flag == 0){
+        fclose(f);
         }
-    
-
+    }
+    if(flag == 0){
+        char send[12]= "";
+        sprintf(send, "RPT %s\n",n_msg);
+        printf("send %s\n",send);
+        nleft = 9; ptr = send;
+            while(nleft>0){
+                nwritten=write(newfd,ptr,nleft);
+                if(nwritten ==-1)/*error*/{printf("Write Failed on POST\n");return 0;}
+                else if(nwritten==0)break;//closed by peer
+                nleft-=nwritten;
+                ptr+=nwritten; 
+            }
+        return 0;
+        if(flag_v == 1){
+            printf("post group %.2s:\"%s\" %s\n",gid,text,filename);
+        }
+    }
+    else{
+        
+        if(flag = 2){
+            unlink(file_path);
+        }
+        rmdir(msg_dir);
+        char send[12]= "";
+        strcpy(send,"RPT NOK\n");
+        nleft = strlen(send); ptr = send;
+            while(nleft>0){
+                nwritten=write(newfd,ptr,nleft);
+                if(nwritten ==-1){printf("Write Failed on POST\n");return 0;}
+                else if(nwritten==0)break;//closed by peer
+                nleft-=nwritten;
+                ptr+=nwritten; 
+            }
+        return 0;
+    }
     return 0;
 }
+
 
 int TcpCommands(){
     char command[5] = "";
@@ -771,7 +879,7 @@ int TcpCommands(){
     nleft= 4; 
     while(nleft > 0){ /* Le o primeiro comando e o espaço a seguir*/
         nread=read(newfd,ptr,1);
-        if(nread==-1){printf("ERROR"); exit(1);}
+        if(nread==-1){printf("Read failed getting command\n");break;}
         else if(nread==0)break;//closed by peer
         nleft-=nread;
         ptr+=nread;
@@ -782,6 +890,19 @@ int TcpCommands(){
     if(strcmp(command,"PST ") ==0 ){
         post();
     }
+    if(strcmp(command,"RTV ") == 0){
+        char buffer3[20] = "";
+        strcpy(buffer3,"RRT NOK\n");
+        nleft = strlen(buffer3); ptr =buffer3;
+        while(nleft > 0){ /* Le o primeiro comando e o espaço a seguir*/
+        nread=write(newfd,ptr,1);
+        if(nread==-1){printf("Read failed getting command\n");break;}
+        else if(nread==0)break;//closed by peer
+        nleft-=nread;
+        ptr+=nread;
+    }
+    }
+     
 }
 
 int InputParse(int argc, char*argv[]){
@@ -847,6 +968,7 @@ int main(int argc, char *argv[]){
      
     int flag = 0;
     while(1){
+        
         FD_ZERO(&rfds); 
         FD_SET(udpfd,&rfds);
         FD_SET(tcpfd,&rfds);
@@ -859,7 +981,7 @@ int main(int argc, char *argv[]){
                 char buffer[128] = "";
                 addrlen = sizeof(addr);
                 n=recvfrom(udpfd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
-                if(n==-1) exit(1);
+                if(n==-1) printf("Failed Recvfrom\n");
                 UdpCommands(buffer);
                 flag = 0;
             }
@@ -878,9 +1000,5 @@ int main(int argc, char *argv[]){
            }
         }
     }/*END OF WHILE*/
-    /*endof*/
-    /*freeaddrinfo(res_udp);
-    close(udpfd);
-    printf("DSPORT %d Flag %d\n",dsport_err,flag_v);*/
     return 0;
 }
