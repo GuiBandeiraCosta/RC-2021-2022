@@ -81,6 +81,40 @@ int UsersinGroup(char buffer[],char gid[]){
     
 }
 
+char *remove_white_spaces(char *str)
+{
+	int i = 0, j = 0;
+	while (str[i])
+	{
+		if (str[i] != ' ')
+          str[j++] = str[i];
+		i++;
+	}
+	str[j] = '\0';
+	return str;
+}
+
+int Messages_in_group(char gid[],char nmsg[]){
+    DIR *d;
+    struct dirent *dir;
+    int i=0;
+    char msg_dir[30] = "";
+    sprintf(msg_dir,"GROUPS/%s/MSG",gid);
+    d = opendir(msg_dir);
+    if (d){
+        while ((dir = readdir(d)) != NULL){
+            if(dir->d_name[0]=='.')
+                continue;
+            else{ i++;}
+        }
+        i++;
+        if(i < 10){ sprintf(nmsg,"000%d",i);}
+        else if(10 <= i < 100){ sprintf(nmsg,"00%d",i);}
+        else if(100 <= i < 1000){ sprintf(nmsg,"0%d",i);}
+        else{sprintf(nmsg,"0%d",i);}
+    }
+}
+
 int ListGroupsDir(GROUPLIST *list){
     DIR *d;
     struct dirent *dir;
@@ -579,6 +613,155 @@ int ulist(){
     close(newfd);
 }
 
+int post(){
+    char *ptr;
+    ssize_t nbytes,nleft,nwritten,nread;
+    char uid[7]="";
+    char gid[4]="";
+    char tsize[12]="";
+    char text[242]="";
+    char spaces[3]="";
+    char filename[27]="";
+    char msg_dir[30] ="";
+    char fsize[12] = "";
+    char n_msg[5] = "";
+
+    ptr = uid;
+    nleft = 6;
+    while(nleft>0){ /*GET N*/
+        nread=read(newfd,ptr,1);
+        if(nread <= 0) printf("FALHEI left\n");
+        nleft-=nread;
+        ptr+=nread;
+        }
+    ptr = gid;
+    remove_white_spaces(uid);
+    nleft = 3;
+    while(nleft>0){ /*GET N*/
+        nread=read(newfd,ptr,1);
+        if(nread <= 0) printf("FALHEI left\n");
+        nleft-=nread;
+        ptr+=nread;
+    }
+    remove_white_spaces(gid);
+    
+    nleft = 4; ptr = tsize;
+    while(nleft>0){
+        nread=read(newfd,ptr,1);
+        if (ptr[0] == ' '){
+            nleft-=nread;
+            ptr+=nread;
+            break;
+        }
+        if(nread ==-1)/*error*/exit(1);
+        else if(nread==0)break;//closed by peer
+        nleft-=nread;
+        ptr+=nread; 
+    }
+
+    nleft = atoi(tsize);ptr = text;
+        while(nleft>0){
+            nread=read(newfd,ptr,nleft);
+            if(nread ==-1)/*error*/exit(1);
+            else if(nread==0)break;//closed by peer
+            nleft-=nread;
+            ptr+=nread; 
+        }
+     nleft = 1; ptr = spaces;
+        while(nleft>0){
+            nread=read(newfd,ptr,1);
+            if(nread ==-1)/*error*/exit(1);
+            else if(nread==0)break;//closed by peer
+            nleft-=nread;
+            ptr+=nread; 
+        }
+
+    // verifcaoes //
+    FILE *f;
+    Messages_in_group(gid,n_msg);
+    printf("numero mesnagens %s\n",n_msg);
+    sprintf(msg_dir,"Groups/%.2s/MSG/%.4s",gid,n_msg);
+    mkdir(msg_dir,0700);
+    char msg_dir_author[50]= "";
+    char msg_dir_text[50]= "";
+    sprintf(msg_dir_author,"%s/A U T H O R.txt",msg_dir);
+    sprintf(msg_dir_text,"%s/T E X T.txt",msg_dir);
+    printf("paths author %s text %s",msg_dir_author,msg_dir_text);
+    f = fopen(msg_dir_author,"w");
+    fwrite(uid,sizeof(char),5,f);
+    fclose(f);
+
+    f = fopen(msg_dir_text,"w");
+    fwrite(text,sizeof(char),strlen(text),f);
+    fclose(f);
+
+
+
+
+    if(spaces[0] == ' '){
+        nleft = 25;ptr = filename;
+            while(nleft>0){
+                nread=read(newfd,ptr,1);
+                if(nread ==-1)/*error*/exit(1);
+                else if(nread==0)break;//closed by peer
+                    if (ptr[0] == ' '){
+                    nleft-=nread;
+                    ptr+=nread;
+                    break;
+                }
+                nleft-=nread;
+                ptr+=nread; 
+            }
+            remove_white_spaces(filename);
+            char file_path[60]="";
+            sprintf(file_path,"%s/%.24s",msg_dir,filename);
+        nleft = 11;ptr = fsize;
+            while(nleft>0){
+                nread=read(newfd,ptr,1);
+                if(nread ==-1)/*error*/exit(1);
+                else if(nread==0)break;//closed by peer
+                    if (ptr[0] == ' '){
+                    nleft-=nread;
+                    ptr+=nread;
+                    break;
+                }
+                nleft-=nread;
+                ptr+=nread; 
+        }
+        // verificacoes c file //
+        char data[514];
+        f = fopen(file_path,"wb");
+            nleft= atoi(fsize);
+            while(nleft > 0){
+                ptr = data;
+                if(nleft < 512){
+                    read(newfd,ptr,nleft);
+                }
+                else{
+                    nread = read(newfd,ptr,512);
+                }
+                fwrite(data,sizeof(unsigned char),nread,f);
+                nleft-=nread;
+                ptr+=nread; 
+                strcpy(data,"");   
+            }
+            fclose(f);
+    }
+    char send[12]= "";
+    sprintf(send, "RPT %s\n",n_msg);
+    printf("send %s\n",send);
+     nleft = 9; ptr = send;
+        while(nleft>0){
+            nwritten=write(newfd,ptr,nleft);
+            if(nwritten ==-1)/*error*/exit(1);
+            else if(nwritten==0)break;//closed by peer
+            nleft-=nwritten;
+            ptr+=nwritten; 
+        }
+    
+
+    return 0;
+}
 
 int TcpCommands(){
     char command[5] = "";
@@ -595,6 +778,9 @@ int TcpCommands(){
     }
     if(strcmp(command,"ULS ") ==0 ){
         ulist();
+    }
+    if(strcmp(command,"PST ") ==0 ){
+        post();
     }
 }
 

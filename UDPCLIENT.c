@@ -203,7 +203,7 @@ int PostFReader(char buffer[],char text[],char Fname[],long fsize){
     }
 }
 
-int ReceiveFReader(char buffer[]){
+int RetrieveFReader(char buffer[]){
     ssize_t nbytes,nleft,nwritten,nread,dread = 0;
     char send[300];
     char data[512];
@@ -613,7 +613,7 @@ int main(int argc,char* argv[]){
                     nleft-=nwritten;
                     ptr+=nwritten;
                 }
-                ReceiveFReader(buffer);
+                RetrieveFReader(buffer);
             }
 
         }
