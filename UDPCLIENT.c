@@ -619,23 +619,6 @@ int main(int argc,char* argv[]){
             }
 
         }
-        else if(strcmp(command,"a")== 0){
-            char buffer[20] = "";
-            char wait[20];
-            tcpfd= socket(AF_INET,SOCK_STREAM,0) /*TCP*/;
-            n = connect(tcpfd,res_tcp->ai_addr,res_tcp->ai_addrlen);
-            if(n == -1) printf("Connect failed\n");
-            n = write(tcpfd,"ULS 09\n",7);
-            printf("CHEGUEI\n");
-            if(n == -1) printf("WRITE failed\n");
-            printf("CHEGUEI2\n");
-
-            n = read(tcpfd,buffer,10);
-            printf("CHEGUEI3\n");
-            if(n == -1) printf("Read failed\n");
-            printf("BUFFER %s\n",buffer);
-            close(tcpfd);
-        }
         else if(strcmp(command,"reg")== 0){
             char send[20] = "";
             char uid_str[6] = "";
