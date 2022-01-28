@@ -965,7 +965,8 @@ int main(int argc, char *argv[]){
     if(n==-1){ printf("Nao consegui dar bind tcpfd\n"); exit(1); }
     if(listen(tcpfd,5) == -1) {printf("Nao consegui dar listen tcpfd\n"); exit(1); } 
 
-     
+    mkdir(USERS,0700);
+    mkdir(GROUPS,0700);
     int flag = 0;
     while(1){
         
